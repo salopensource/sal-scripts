@@ -26,7 +26,7 @@ import optparse
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.5.1'
+VERSION = '0.5.1.1'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -204,7 +204,7 @@ data['serial'] = serial
 data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
-data['version'] = version
+data['version'] = VERSION
 
 data = urllib.urlencode(data)
 
