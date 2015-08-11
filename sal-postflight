@@ -137,8 +137,11 @@ try:
     osquery = []
     with open('/var/log/osquery/osqueryd.results.log') as f:
         for line in f.readlines():
-            osquery.append(json.loads(line))
-    report['osquery'] = osquery
+            if 'diffResults' not in json.loads(line):
+                print 'osquery logs are not in the correct format. Use "log_result_events": "false" in your settings.'
+            else:
+                osquery.append(json.loads(line))
+        report['osquery'] = osquery
 except:
     pass
 
