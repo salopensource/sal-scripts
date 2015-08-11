@@ -23,10 +23,11 @@ import bz2
 import os
 import sys
 import optparse
+import json
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.5.1.1'
+VERSION = '0.6.0'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -129,6 +130,15 @@ try:
     if debug:
         print 'DEBUG: Puppet Report'
         print report['Puppet']
+except:
+    pass
+
+try:
+    osquery = []
+    with open('/var/log/osquery/osqueryd.results.log') as f:
+        for line in f.readlines():
+            osquery.append(json.loads(line))
+    report['osquery'] = osquery
 except:
     pass
 
