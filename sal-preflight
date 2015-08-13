@@ -1,0 +1,98 @@
+#!/usr/bin/python
+#
+#    preflight
+#        Retrieves queries to run in osquery
+#
+
+import errno
+import os
+import sys
+import subprocess
+from Foundation import *
+BUNDLE_ID = 'com.github.salopensource.sal'
+
+def set_pref(pref_name, pref_value):
+    """Sets a preference, writing it to
+        /Library/Preferences/com.salopensource.sal.plist.
+        This should normally be used only for 'bookkeeping' values;
+        values that control the behavior of munki may be overridden
+        elsewhere (by MCX, for example)"""
+    try:
+        CFPreferencesSetValue(
+                              pref_name, pref_value, BUNDLE_ID,
+                              kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
+        CFPreferencesAppSynchronize(BUNDLE_ID)
+    except Exception:
+        pass
+
+def pref(pref_name):
+    """Return a preference. Since this uses CFPreferencesCopyAppValue,
+    Preferences can be defined several places. Precedence is:
+        - MCX
+        - /var/root/Library/Preferences/com.salopensource.sal.plist
+        - /Library/Preferences/com.salopensource.sal.plist
+        - default_prefs defined here.
+    """
+    default_prefs = {
+        'ServerURL': 'http://sal',
+        'osquery_launchd': 'com.facebook.osqueryd.plist'
+    }
+    pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
+    if pref_value == None:
+        pref_value = default_prefs.get(pref_name)
+        # we're using a default value. We'll write it out to
+        # /Library/Preferences/<BUNDLE_ID>.plist for admin
+        # discoverability
+        set_pref(pref_name, pref_value)
+    if isinstance(pref_value, NSDate):
+        # convert NSDate/CFDates to strings
+        pref_value = str(pref_value)
+    return pref_value
+
+def is_exe(fpath):
+    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+def main():
+    # Test if osqueryi is installed. No point continuing if not.
+    if not is_exe('/usr/local/bin/osqueryi'):
+        sys.exit(0)
+
+    # Get the SalURL from the prefs
+    sal_url = pref('ServerURL')
+    preflighturl = sal_url+'/preflight/'
+    # Get the name of the launchdaemon from the prefs
+    launchd_name = pref('osquery_launchd')
+    launchd_path = '/Library/LaunchDaemons/'+launchd_name
+    
+
+    # Download the current queries
+    cmd = ['/usr/bin/curl', preflighturl]
+    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (queries, stderr) = task.communicate()
+    if task.returncode != 0:
+        print 'There was a problem downloading the queries for osquery. Stopping so Munki can resume.'
+        print stderr
+        sys.exit(0)
+
+    # Make the directories if needed
+    mkdir_p('/private/var/log/osquery')
+    mkdir_p('/private/var/osquery/sal_packs')
+
+    # Write out the osquery pack
+    pack = open('/private/var/osquery/sal_packs/sal.conf','w') 
+    pack.write(queries)
+
+    # stop and reload the launchdaemon for osquery
+    subprocess.call(['/bin/launchctl', 'unload', launchd_path])
+    subprocess.call(['/bin/launchctl', 'load', launchd_path])
+
+if __name__ == '__main__':
+    main()
