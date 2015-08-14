@@ -217,7 +217,7 @@ data['serial'] = serial
 data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
-data['version'] = VERSION
+data['sal_version'] = VERSION
 
 data = urllib.urlencode(data)
 
