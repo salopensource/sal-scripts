@@ -15,6 +15,7 @@ pack-yaml: l_usr_local
 	@sudo chown -R root:wheel ${WORK_D}/usr/local/sal/yaml
 	@sudo chmod -R 755 ${WORK_D}/usr/local/sal/yaml
 	@sudo ${INSTALL} -m 755 -g wheel -o root "salgurl.py" ${WORK_D}/usr/local/sal
+	@sudo ${INSTALL} -m 755 -g wheel -o root "utils.py" ${WORK_D}/usr/local/sal
 
 l_munki: l_usr_local
 	@sudo mkdir -p ${WORK_D}/usr/local/munki/postflight.d
