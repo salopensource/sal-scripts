@@ -1,6 +1,6 @@
 USE_PKGBUILD=1
 include /usr/local/share/luggage/luggage.make
-PACKAGE_VERSION=0.5.1.1
+PACKAGE_VERSION=0.6.0b1
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
 REVERSE_DOMAIN=com.github.salopensource
@@ -14,6 +14,7 @@ pack-yaml: l_usr_local
 	@sudo ${CP} -R yaml ${WORK_D}/usr/local/sal
 	@sudo chown -R root:wheel ${WORK_D}/usr/local/sal/yaml
 	@sudo chmod -R 755 ${WORK_D}/usr/local/sal/yaml
+	@sudo ${INSTALL} -m 755 -g wheel -o root "salgurl.py" ${WORK_D}/usr/local/sal
 
 l_munki: l_usr_local
 	@sudo mkdir -p ${WORK_D}/usr/local/munki/postflight.d
@@ -22,12 +23,7 @@ l_munki: l_usr_local
 	@sudo chown root:wheel ${WORK_D}/usr/local/munki/preflight.d
 
 pack-sal-submit: l_munki
-	@sudo ${CP} postflight ${WORK_D}/usr/local/munki/postflight
-	@sudo chown -R root:wheel ${WORK_D}/usr/local/munki/postflight
-	@sudo chmod -R 755 ${WORK_D}/usr/local/munki/postflight
-	@sudo ${CP} preflight ${WORK_D}/usr/local/munki/preflight
-	@sudo chown -R root:wheel ${WORK_D}/usr/local/munki/preflight
-	@sudo chmod -R 755 ${WORK_D}/usr/local/munki/preflight
-	@sudo ${CP} sal-postflight ${WORK_D}/usr/local/munki/postflight.d/sal-postflight
-	@sudo chown -R root:wheel ${WORK_D}/usr/local/munki/postflight.d/sal-postflight
-	@sudo chmod -R 755 ${WORK_D}/usr/local/munki/postflight.d/sal-postflight
+	@sudo ${INSTALL} -m 755 -g wheel -o root "postflight" ${WORK_D}/usr/local/munki
+	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight" ${WORK_D}/usr/local/munki
+	@sudo ${INSTALL} -m 755 -g wheel -o root "sal-postflight" ${WORK_D}/usr/local/munki/postflight.d
+	@sudo ${INSTALL} -m 755 -g wheel -o root "sal-preflight" ${WORK_D}/usr/local/munki/preflight.d
