@@ -20,10 +20,14 @@ import subprocess
 import base64
 import yaml
 import bz2
+import zlib
 import os
 import sys
 import optparse
 import json
+import utils
+import tempfile
+import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
@@ -55,42 +59,6 @@ def getconsoleuser():
     cfuser = SCDynamicStoreCopyConsoleUser( None, None, None )
     return cfuser[0]
 
-def set_pref(pref_name, pref_value):
-    """Sets a preference, writing it to
-        /Library/Preferences/com.salopensource.sal.plist.
-        This should normally be used only for 'bookkeeping' values;
-        values that control the behavior of munki may be overridden
-        elsewhere (by MCX, for example)"""
-    try:
-        CFPreferencesSetValue(
-                              pref_name, pref_value, BUNDLE_ID,
-                              kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
-        CFPreferencesAppSynchronize(BUNDLE_ID)
-    except Exception:
-        pass
-
-def pref(pref_name):
-    """Return a preference. Since this uses CFPreferencesCopyAppValue,
-    Preferences can be defined several places. Precedence is:
-        - MCX
-        - /var/root/Library/Preferences/com.salopensource.sal.plist
-        - /Library/Preferences/com.salopensource.sal.plist
-        - default_prefs defined here.
-    """
-    default_prefs = {
-        'ServerURL': 'http://sal',
-    }
-    pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value == None:
-        pref_value = default_prefs.get(pref_name)
-        # we're using a default value. We'll write it out to
-        # /Library/Preferences/<BUNDLE_ID>.plist for admin
-        # discoverability
-        set_pref(pref_name, pref_value)
-    if isinstance(pref_value, NSDate):
-        # convert NSDate/CFDates to strings
-        pref_value = str(pref_value)
-    return pref_value
 
 usage = "%prog [options]"
 o = optparse.OptionParser(usage=usage)
@@ -103,10 +71,10 @@ opts, args = o.parse_args()
 debug = opts.debug
 
 # read in the serverURL
-ServerURL = pref('ServerURL')
+ServerURL = utils.pref('ServerURL')
 checkinurl = ServerURL+'/checkin/'
 # read in the BU Key
-bu_key = pref('key')
+bu_key = utils.pref('key')
 
 # read in Munki Report
 report = FoundationPlist.readPlist('/Library/Managed Installs/ManagedInstallReport.plist')
@@ -133,17 +101,21 @@ try:
 except:
     pass
 
-try:
+if os.path.isfile('/var/log/osquery/osqueryd.results.log'):
     osquery = []
+    counter = 0
     with open('/var/log/osquery/osqueryd.results.log') as f:
         for line in f.readlines():
+            if 'logfile turned over due to size' in line and counter == 0:
+                continue
             if 'diffResults' not in json.loads(line):
                 print 'osquery logs are not in the correct format. Use "log_result_events": "false" in your settings.'
             else:
                 osquery.append(json.loads(line))
+            counter = counter + 1
         report['osquery'] = osquery
-except:
-    pass
+else:
+    print 'Not using osquery'
 
 # Merge the system profiler report into the Munki report
 if not 'MachineInfo' in report:
@@ -210,7 +182,7 @@ plist = FoundationPlist.writePlistToString(report)
 if debug:
     print 'DEBUG: Final Report'
     print plist
-zipped = bz2.compress(plist)
+zipped = zlib.compress(plist)
 
 data['base64bz2report'] = base64.b64encode(zipped)
 data['serial'] = serial
@@ -219,14 +191,41 @@ data['name'] = name
 data['disk_size'] = get_disk_size('/')
 data['sal_version'] = VERSION
 
-data = urllib.urlencode(data)
+urldata = urllib.urlencode(data)
 
-cmd = ['/usr/bin/curl', '--data', data, checkinurl]
-task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-(stdout, stderr) = task.communicate()
+# cmd = ['/usr/bin/curl', '--data', data, checkinurl]
+# task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+# (stdout, stderr) = task.communicate()
+# print stdout
+temp_file = '/Users/Shared/.sal_out'
+utils.post_url(checkinurl, urldata, temp_file, debug)
 
 # cleanup
 if facterflag:
     os.environ['FACTERLIB'] = facterlib
 
-print stdout
+with open(temp_file, 'r') as fin:
+    print fin.read()
+
+os.remove(temp_file)
+
+hashurl = ServerURL+'/inventory/hash/'+serial+'/'
+inventorysubmiturl = ServerURL+'/inventory/submit/'
+inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
+if os.path.isfile(inventoryplist):
+    f = open(inventoryplist).read()
+    inventoryhash = hashlib.sha256(f).hexdigest()
+    utils.get_url(hashurl, temp_file)
+    with open(temp_file, 'r') as fin:
+        serverhash = fin.readline()
+
+    if serverhash != inventoryhash:
+        inventorydata = FoundationPlist.writePlistToString(FoundationPlist.readPlist(inventoryplist))
+        data['base64bz2inventory'] = base64.b64encode(bz2.compress(inventorydata))
+        urldata = urllib.urlencode(data)
+        utils.post_url(inventorysubmiturl, urldata, temp_file, debug)
+
+        with open(temp_file, 'r') as fin:
+            print fin.read()
+
+        os.remove(temp_file)

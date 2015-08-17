@@ -9,45 +9,9 @@ import os
 import sys
 import subprocess
 from Foundation import *
-BUNDLE_ID = 'com.github.salopensource.sal'
-
-def set_pref(pref_name, pref_value):
-    """Sets a preference, writing it to
-        /Library/Preferences/com.salopensource.sal.plist.
-        This should normally be used only for 'bookkeeping' values;
-        values that control the behavior of munki may be overridden
-        elsewhere (by MCX, for example)"""
-    try:
-        CFPreferencesSetValue(
-                              pref_name, pref_value, BUNDLE_ID,
-                              kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
-        CFPreferencesAppSynchronize(BUNDLE_ID)
-    except Exception:
-        pass
-
-def pref(pref_name):
-    """Return a preference. Since this uses CFPreferencesCopyAppValue,
-    Preferences can be defined several places. Precedence is:
-        - MCX
-        - /var/root/Library/Preferences/com.salopensource.sal.plist
-        - /Library/Preferences/com.salopensource.sal.plist
-        - default_prefs defined here.
-    """
-    default_prefs = {
-        'ServerURL': 'http://sal',
-        'osquery_launchd': 'com.facebook.osqueryd.plist'
-    }
-    pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value == None:
-        pref_value = default_prefs.get(pref_name)
-        # we're using a default value. We'll write it out to
-        # /Library/Preferences/<BUNDLE_ID>.plist for admin
-        # discoverability
-        set_pref(pref_name, pref_value)
-    if isinstance(pref_value, NSDate):
-        # convert NSDate/CFDates to strings
-        pref_value = str(pref_value)
-    return pref_value
+import utils
+import tempfile
+import shutil
 
 def is_exe(fpath):
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
@@ -66,33 +30,37 @@ def main():
         sys.exit(0)
 
     # Get the SalURL from the prefs
-    sal_url = pref('ServerURL')
+    sal_url = utils.pref('ServerURL')
     preflighturl = sal_url+'/preflight/'
     # Get the name of the launchdaemon from the prefs
-    launchd_name = pref('osquery_launchd')
+    launchd_name = utils.pref('osquery_launchd')
     launchd_path = '/Library/LaunchDaemons/'+launchd_name
     
 
     # Download the current queries
-    cmd = ['/usr/bin/curl', preflighturl]
-    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (queries, stderr) = task.communicate()
-    if task.returncode != 0:
-        print 'There was a problem downloading the queries for osquery. Stopping so Munki can resume.'
-        print stderr
-        sys.exit(0)
+    # cmd = ['/usr/bin/curl', preflighturl]
+    # task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # (queries, stderr) = task.communicate()
+    # if task.returncode != 0:
+    #     print 'There was a problem downloading the queries for osquery. Stopping so Munki can resume.'
+    #     print stderr
+    #     sys.exit(0)
+    temp_file = os.path.join(tempfile.mkdtemp(), 'tempdata')
+    if utils.get_url(preflighturl, temp_file):
+        # Make the directories if needed
+        mkdir_p('/private/var/log/osquery')
+        mkdir_p('/private/var/osquery/sal_packs')
 
-    # Make the directories if needed
-    mkdir_p('/private/var/log/osquery')
-    mkdir_p('/private/var/osquery/sal_packs')
+        # Write out the osquery pack
+        if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
+            os.remove('/private/var/osquery/sal_packs/sal.conf')
 
-    # Write out the osquery pack
-    pack = open('/private/var/osquery/sal_packs/sal.conf','w') 
-    pack.write(queries)
+        shutil.copy(temp_file,'/private/var/osquery/sal_packs/sal.conf')
 
-    # stop and reload the launchdaemon for osquery
-    subprocess.call(['/bin/launchctl', 'unload', launchd_path])
-    subprocess.call(['/bin/launchctl', 'load', launchd_path])
+        # stop and reload the launchdaemon for osquery
+        subprocess.call(['/bin/launchctl', 'unload', launchd_path])
+        subprocess.call(['/bin/launchctl', 'load', launchd_path])
 
+    os.remove(temp_file)
 if __name__ == '__main__':
     main()
