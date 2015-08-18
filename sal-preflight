@@ -5,7 +5,8 @@
 #
 
 import errno
-import os
+import sys
+sys.path.append('/usr/local/sal')
 import sys
 import subprocess
 from Foundation import *
