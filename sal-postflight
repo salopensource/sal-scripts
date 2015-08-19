@@ -181,7 +181,7 @@ plist = FoundationPlist.writePlistToString(report)
 if debug:
     print 'DEBUG: Final Report'
     print plist
-zipped = b2z.compress(plist)
+zipped = bz2.compress(plist)
 
 data['base64bz2report'] = base64.b64encode(zipped)
 data['serial'] = serial
