@@ -192,7 +192,7 @@ data['sal_version'] = VERSION
 
 urldata = urllib.urlencode(data)
 
-# cmd = ['/usr/bin/curl', '--data', data, checkinurl]
+# cmd = ['/usr/bin/curl', '--data', urldata, checkinurl]
 # task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 # (stdout, stderr) = task.communicate()
 # print stdout
@@ -211,12 +211,16 @@ os.remove(temp_file)
 hashurl = ServerURL+'/inventory/hash/'+serial+'/'
 inventorysubmiturl = ServerURL+'/inventory/submit/'
 inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
+serverhash = None
 if os.path.isfile(inventoryplist):
     f = open(inventoryplist).read()
     inventoryhash = hashlib.sha256(f).hexdigest()
-    utils.get_url(hashurl, temp_file)
-    with open(temp_file, 'r') as fin:
-        serverhash = fin.readline()
+    try:
+        utils.get_url(hashurl, temp_file)
+        with open(temp_file, 'r') as fin:
+            serverhash = fin.readline()
+    except:
+        pass
 
     if serverhash != inventoryhash:
         inventorydata = FoundationPlist.writePlistToString(FoundationPlist.readPlist(inventoryplist))
