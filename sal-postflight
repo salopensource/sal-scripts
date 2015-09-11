@@ -30,7 +30,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.6.0'
+VERSION = '0.6.1'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -181,6 +181,7 @@ plist = FoundationPlist.writePlistToString(report)
 if debug:
     print 'DEBUG: Final Report'
     print plist
+
 zipped = bz2.compress(plist)
 
 data['base64bz2report'] = base64.b64encode(zipped)
@@ -192,21 +193,10 @@ data['sal_version'] = VERSION
 
 urldata = urllib.urlencode(data)
 
-# cmd = ['/usr/bin/curl', '--data', urldata, checkinurl]
-# task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-# (stdout, stderr) = task.communicate()
-# print stdout
-temp_file = '/Users/Shared/.sal_out'
-utils.post_url(checkinurl, urldata, temp_file, debug)
-
-# cleanup
-if facterflag:
-    os.environ['FACTERLIB'] = facterlib
-
-with open(temp_file, 'r') as fin:
-    print fin.read()
-
-os.remove(temp_file)
+(stdout, stderr) = utils.curl(checkinurl, urldata)
+if stderr:
+    print stderr
+print stdout
 
 hashurl = ServerURL+'/inventory/hash/'+serial+'/'
 inventorysubmiturl = ServerURL+'/inventory/submit/'
@@ -215,20 +205,17 @@ serverhash = None
 if os.path.isfile(inventoryplist):
     f = open(inventoryplist).read()
     inventoryhash = hashlib.sha256(f).hexdigest()
-    try:
-        utils.get_url(hashurl, temp_file)
-        with open(temp_file, 'r') as fin:
-            serverhash = fin.readline()
-    except:
-        pass
+    (serverhash, stderr) = utils.curl(hashurl)
 
     if serverhash != inventoryhash:
         inventorydata = FoundationPlist.writePlistToString(FoundationPlist.readPlist(inventoryplist))
         data['base64bz2inventory'] = base64.b64encode(bz2.compress(inventorydata))
         urldata = urllib.urlencode(data)
-        utils.post_url(inventorysubmiturl, urldata, temp_file, debug)
+        (stdout, stderr) = utils.curl(inventorysubmiturl, urldata)
+        if stderr:
+            print stderr
+        print stdout
 
-        with open(temp_file, 'r') as fin:
-            print fin.read()
-
-        os.remove(temp_file)
+# cleanup
+if facterflag:
+    os.environ['FACTERLIB'] = facterlib

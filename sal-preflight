@@ -14,6 +14,7 @@ import utils
 import tempfile
 import shutil
 import os
+import json
 
 def is_exe(fpath):
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
@@ -38,17 +39,18 @@ def main():
     launchd_name = utils.pref('osquery_launchd')
     launchd_path = '/Library/LaunchDaemons/'+launchd_name
     
+    (stdout, stderr) = utils.curl(preflighturl)
+    if stderr:
+        print stderr
+    if len(stdout) != 0:
+        # validate the json
+        try:
+            json.loads(stdout)
+        except:
+            sys.exit(0)
 
-    # Download the current queries
-    # cmd = ['/usr/bin/curl', preflighturl]
-    # task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # (queries, stderr) = task.communicate()
-    # if task.returncode != 0:
-    #     print 'There was a problem downloading the queries for osquery. Stopping so Munki can resume.'
-    #     print stderr
-    #     sys.exit(0)
-    temp_file = os.path.join(tempfile.mkdtemp(), 'tempdata')
-    if utils.get_url(preflighturl, temp_file):
+        print 'OSQuery configuration recieved'
+        print stdout
         # Make the directories if needed
         mkdir_p('/private/var/log/osquery')
         mkdir_p('/private/var/osquery/sal_packs')
@@ -57,12 +59,11 @@ def main():
         if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
             os.remove('/private/var/osquery/sal_packs/sal.conf')
 
-        shutil.copy(temp_file,'/private/var/osquery/sal_packs/sal.conf')
-
+        with open("/private/var/osquery/sal_packs/sal.conf", "w") as conf_file:
+            conf_file.write(stdout)
         # stop and reload the launchdaemon for osquery
         subprocess.call(['/bin/launchctl', 'unload', launchd_path])
         subprocess.call(['/bin/launchctl', 'load', launchd_path])
 
-    os.remove(temp_file)
 if __name__ == '__main__':
     main()
