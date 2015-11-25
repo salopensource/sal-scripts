@@ -30,7 +30,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.6.1'
+VERSION = '0.6.2'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -198,6 +198,12 @@ if stderr:
     print stderr
 print stdout
 
+data = {}
+data['serial'] = serial
+data['key'] = bu_key
+data['name'] = name
+data['disk_size'] = get_disk_size('/')
+data['sal_version'] = VERSION
 hashurl = ServerURL+'/inventory/hash/'+serial+'/'
 inventorysubmiturl = ServerURL+'/inventory/submit/'
 inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
@@ -212,6 +218,30 @@ if os.path.isfile(inventoryplist):
         data['base64bz2inventory'] = base64.b64encode(bz2.compress(inventorydata))
         urldata = urllib.urlencode(data)
         (stdout, stderr) = utils.curl(inventorysubmiturl, urldata)
+        if stderr:
+            print stderr
+        print stdout
+
+data = {}
+data['serial'] = serial
+data['key'] = bu_key
+data['name'] = name
+data['disk_size'] = get_disk_size('/')
+data['sal_version'] = VERSION
+
+hashurl = ServerURL+'/installlog/hash/'+serial+'/'
+installlogsubmiturl = ServerURL+'/installlog/submit/'
+installlog = '/Library/Managed Installs/Logs/Install.log'
+serverhash = None
+if os.path.isfile(installlog):
+    f = open(installlog).read()
+    localhash = hashlib.sha256(f).hexdigest()
+    (serverhash, stderr) = utils.curl(hashurl)
+
+    if serverhash != localhash:
+        data['base64bz2installlog'] = base64.b64encode(bz2.compress(f))
+        urldata = urllib.urlencode(data)
+        (stdout, stderr) = utils.curl(installlogsubmiturl, urldata)
         if stderr:
             print stderr
         print stdout
