@@ -12,9 +12,11 @@ import urllib2
 # try to import from the default place Munki installs it
 try:
     from munkilib import FoundationPlist
+    from munkilib import munkicommon
 except:
     sys.path.append('/usr/local/munki')
     from munkilib import FoundationPlist
+    from munkilib import munkicommon
 from Foundation import *
 import subprocess
 import base64
@@ -30,7 +32,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.6.2'
+VERSION = '0.7.0'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -231,14 +233,15 @@ data['sal_version'] = VERSION
 
 hashurl = ServerURL+'/installlog/hash/'+serial+'/'
 installlogsubmiturl = ServerURL+'/installlog/submit/'
-installlog = '/Library/Managed Installs/Logs/Install.log'
+managed_install_dir = munkicommon.pref('ManagedInstallDir')
+installlog = os.path.join(managed_install_dir, 'Logs',' Install.log')
 serverhash = None
 if os.path.isfile(installlog):
     f = open(installlog).read()
     localhash = hashlib.sha256(f).hexdigest()
     (serverhash, stderr) = utils.curl(hashurl)
 
-    if serverhash != localhash:
+    if serverhash != localhash or stderr != None:
         data['base64bz2installlog'] = base64.b64encode(bz2.compress(f))
         urldata = urllib.urlencode(data)
         (stdout, stderr) = utils.curl(installlogsubmiturl, urldata)
@@ -246,6 +249,48 @@ if os.path.isfile(installlog):
             print stderr
         print stdout
 
+# Catalogs
+hashurl = ServerURL+'/catalog/hash/'
+catalogsubmiturl = ServerURL+'/catalog/submit/'
+catalog_dir = os.path.join(managed_install_dir, 'catalogs')
+check_list = []
+if os.path.exists(catalog_dir):
+    for file in os.listdir(catalog_dir):
+        # don't operate on hidden files (.DS_Store etc)
+        if not file.startswith('.'):
+            f = open(os.path.join(catalog_dir, file)).read()
+            catalog_hash = hashlib.sha256(f).hexdigest()
+            check_list.append({'name': file, 'sha256hash':catalog_hash})
+    data = {}
+    check_plist = FoundationPlist.writePlistToString(check_list)
+    data['catalogs'] = base64.b64encode(bz2.compress(check_plist))
+    data['serial'] = serial
+    data['key'] = bu_key
+    data['sal_version'] = VERSION
+    urldata = urllib.urlencode(data)
+    (catalog_out, stderr) = utils.curl(hashurl, urldata)
+    try:
+        catalog_data = FoundationPlist.readPlistFromString(catalog_out)
+    except:
+        catalog_data = None
+
+    data = {}
+    data['serial'] = serial
+    data['key'] = bu_key
+    data['sal_version'] = VERSION
+    for remote_item in catalog_data:
+        for stored_item in check_list:
+            if stored_item['name'] == remote_item['name']:
+                if stored_item['sha256hash'] != remote_item['sha256hash']:
+                    f = open(os.path.join(catalog_dir, stored_item['name'])).read()
+                    data['base64bz2catalog'] = base64.b64encode(bz2.compress(f))
+                    data['name'] = stored_item['name']
+                    urldata = urllib.urlencode(data)
+                    (stdout, stderr) = utils.curl(catalogsubmiturl, urldata)
+                    if stderr:
+                        print stderr
+                    if stdout:
+                        print stdout
 # cleanup
 if facterflag:
     os.environ['FACTERLIB'] = facterlib
