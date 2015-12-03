@@ -272,7 +272,7 @@ if os.path.exists(catalog_dir):
     try:
         catalog_data = FoundationPlist.readPlistFromString(catalog_out)
     except:
-        catalog_data = None
+        catalog_data = {}
 
     data = {}
     data['serial'] = serial
