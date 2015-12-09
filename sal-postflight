@@ -32,7 +32,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.7.0'
+VERSION = '0.7.2'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -73,9 +73,14 @@ debug = opts.debug
 
 # read in the serverURL
 ServerURL = utils.pref('ServerURL')
+if ServerURL.endswith('/'):
+    ServerURL = ServerURL[:-1]
 checkinurl = ServerURL+'/checkin/'
 # read in the BU Key
 bu_key = utils.pref('key')
+if bu_key == None:
+    print 'Sal Key isn\'t set.'
+    sys.exit(1)
 
 # read in Munki Report
 report = FoundationPlist.readPlist('/Library/Managed Installs/ManagedInstallReport.plist')
@@ -197,11 +202,12 @@ urldata = urllib.urlencode(data)
 
 (stdout, stderr) = utils.curl(checkinurl, urldata)
 if stderr:
+    print checkinurl
     print stderr
 print stdout
 
 data = {}
-data['serial'] = serial
+data['serial'] = serial.upper()
 data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
@@ -216,16 +222,18 @@ if os.path.isfile(inventoryplist):
     (serverhash, stderr) = utils.curl(hashurl)
 
     if serverhash != inventoryhash:
-        inventorydata = FoundationPlist.writePlistToString(FoundationPlist.readPlist(inventoryplist))
+        #inventorydata = FoundationPlist.writePlistToString(FoundationPlist.readPlist(inventoryplist))
+        inventorydata = open(inventoryplist).read()
         data['base64bz2inventory'] = base64.b64encode(bz2.compress(inventorydata))
         urldata = urllib.urlencode(data)
         (stdout, stderr) = utils.curl(inventorysubmiturl, urldata)
         if stderr:
+            print inventorysubmiturl
             print stderr
         print stdout
 
 data = {}
-data['serial'] = serial
+data['serial'] = serial.upper()
 data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
@@ -234,8 +242,9 @@ data['sal_version'] = VERSION
 hashurl = ServerURL+'/installlog/hash/'+serial+'/'
 installlogsubmiturl = ServerURL+'/installlog/submit/'
 managed_install_dir = munkicommon.pref('ManagedInstallDir')
-installlog = os.path.join(managed_install_dir, 'Logs',' Install.log')
+installlog = os.path.join(managed_install_dir, 'Logs','Install.log')
 serverhash = None
+
 if os.path.isfile(installlog):
     f = open(installlog).read()
     localhash = hashlib.sha256(f).hexdigest()
@@ -246,6 +255,7 @@ if os.path.isfile(installlog):
         urldata = urllib.urlencode(data)
         (stdout, stderr) = utils.curl(installlogsubmiturl, urldata)
         if stderr:
+            print installlogsubmiturl
             print stderr
         print stdout
 
@@ -288,6 +298,7 @@ if os.path.exists(catalog_dir):
                     urldata = urllib.urlencode(data)
                     (stdout, stderr) = utils.curl(catalogsubmiturl, urldata)
                     if stderr:
+                        print catalogsubmiturl
                         print stderr
                     if stdout:
                         print stdout
