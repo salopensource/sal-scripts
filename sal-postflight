@@ -9,6 +9,7 @@ sys.path.append('/usr/local/sal')
 
 import urllib
 import urllib2
+import uuid
 # try to import from the default place Munki installs it
 try:
     from munkilib import FoundationPlist
@@ -32,7 +33,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.7.2'
+VERSION = '0.7.3'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -82,6 +83,8 @@ if bu_key == None:
     print 'Sal Key isn\'t set.'
     sys.exit(1)
 
+# Set the run uuid
+run_uuid = uuid.uuid4()
 # read in Munki Report
 report = FoundationPlist.readPlist('/Library/Managed Installs/ManagedInstallReport.plist')
 if debug:
@@ -197,6 +200,7 @@ data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
 data['sal_version'] = VERSION
+data['run_uuid'] = run_uuid
 
 urldata = urllib.urlencode(data)
 
@@ -212,6 +216,7 @@ data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
 data['sal_version'] = VERSION
+data['run_uuid'] = run_uuid
 hashurl = ServerURL+'/inventory/hash/'+serial+'/'
 inventorysubmiturl = ServerURL+'/inventory/submit/'
 inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
@@ -238,6 +243,7 @@ data['key'] = bu_key
 data['name'] = name
 data['disk_size'] = get_disk_size('/')
 data['sal_version'] = VERSION
+data['run_uuid'] = run_uuid
 
 hashurl = ServerURL+'/installlog/hash/'+serial+'/'
 installlogsubmiturl = ServerURL+'/installlog/submit/'
@@ -277,6 +283,7 @@ if os.path.exists(catalog_dir):
     data['serial'] = serial
     data['key'] = bu_key
     data['sal_version'] = VERSION
+    data['run_uuid'] = run_uuid
     urldata = urllib.urlencode(data)
     (catalog_out, stderr) = utils.curl(hashurl, urldata)
     try:
@@ -288,6 +295,7 @@ if os.path.exists(catalog_dir):
     data['serial'] = serial
     data['key'] = bu_key
     data['sal_version'] = VERSION
+    data['run_uuid'] = run_uuid
     for remote_item in catalog_data:
         for stored_item in check_list:
             if stored_item['name'] == remote_item['name']:
