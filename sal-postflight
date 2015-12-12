@@ -33,7 +33,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.7.3'
+VERSION = '0.7.4'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -146,28 +146,44 @@ if facterlib:
 os.environ['FACTERLIB'] = desiredfacter
 
 # if Puppet is installed, get it's verion
-try:
-    command = ['/usr/bin/puppet', '--version']
-    task = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (stdout, stderr) = task.communicate()
-    if stdout:
-        report['Puppet_Version'] = stdout
-except:
-    print stderr
+puppetpath = None
+
+if os.path.exists('/usr/bin/puppet'):
+    puppetpath = '/usr/bin/puppet'
+elif:
+    os.path.exists('/opt/puppetlabs/bin/puppet'):
+    puppetpath = '/opt/puppetlabs/bin/puppet'
+if puppetpath:
+    try:
+        command = [puppetpath, '--version']
+        task = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = task.communicate()
+        if stdout:
+            report['Puppet_Version'] = stdout
+    except:
+        print stderr
 
 # if Facter is installed, perform a run
-try:
-    command = ['/usr/bin/facter', '--puppet', '--yaml']
-    task = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (stdout, stderr) = task.communicate()
-    if stdout:
-        facter = yaml.load(stdout)
-        report['Facter'] = facter
-        if debug:
-            print 'DEBUG: Facter Output'
-            print report['Facter']
-except:
-    print stderr
+facterpath = None
+if os.path.exists('/usr/bin/facter'):
+    facterpath = '/usr/bin/facter'
+elif:
+    os.path.exists('/opt/puppetlabs/bin/facter'):
+    puppetpath = '/opt/puppetlabs/bin/facter'
+
+if facterpath:
+    try:
+        command = [facterpath, '--puppet', '--yaml']
+        task = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = task.communicate()
+        if stdout:
+            facter = yaml.load(stdout)
+            report['Facter'] = facter
+            if debug:
+                print 'DEBUG: Facter Output'
+                print report['Facter']
+    except:
+        print stderr
 
 # Get the serial number
 try:
