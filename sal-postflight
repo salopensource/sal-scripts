@@ -150,8 +150,7 @@ puppetpath = None
 
 if os.path.exists('/usr/bin/puppet'):
     puppetpath = '/usr/bin/puppet'
-elif:
-    os.path.exists('/opt/puppetlabs/bin/puppet'):
+elif os.path.exists('/opt/puppetlabs/bin/puppet'):
     puppetpath = '/opt/puppetlabs/bin/puppet'
 if puppetpath:
     try:
@@ -167,8 +166,7 @@ if puppetpath:
 facterpath = None
 if os.path.exists('/usr/bin/facter'):
     facterpath = '/usr/bin/facter'
-elif:
-    os.path.exists('/opt/puppetlabs/bin/facter'):
+elif os.path.exists('/opt/puppetlabs/bin/facter'):
     puppetpath = '/opt/puppetlabs/bin/facter'
 
 if facterpath:
