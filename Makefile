@@ -1,6 +1,6 @@
 USE_PKGBUILD=1
 include /usr/local/share/luggage/luggage.make
-PACKAGE_VERSION=0.7.4
+PACKAGE_VERSION=0.7.5
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
 REVERSE_DOMAIN=com.github.salopensource
