@@ -33,7 +33,7 @@ import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
-VERSION = '0.7.4'
+VERSION = '0.7.5'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
