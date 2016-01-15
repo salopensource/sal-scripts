@@ -14,9 +14,7 @@ import os
 import subprocess
 import sys
 import urllib
-import utils
 import uuid
-import yaml
 
 from Foundation import *
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
@@ -30,8 +28,9 @@ except ImportError:
     from munkilib import FoundationPlist
     from munkilib import munkicommon
 
-
 sys.path.append('/usr/local/sal')
+import utils
+import yaml
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
@@ -438,6 +437,8 @@ def send_catalogs(ServerURL, catalog_data):
 
 
 def send_remote(ServerURL, remote_data, catalog_data, check_list):
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    catalog_dir = os.path.join(managed_install_dir, 'catalogs')
     catalogsubmiturl = os.path.join(ServerURL, 'catalog/submit', '')
     for remote_item in catalog_data:
         for stored_item in check_list:
