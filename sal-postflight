@@ -41,16 +41,16 @@ def main():
         sys.exit('Unable to get MachineInfo from ManagedInstallReport.plist. '
                  'This is usually due to running Munki in Apple Software only '
                  'mode.')
-    report['MachineInfo']['SystemProfile'] = sys_profile()
+    report['MachineInfo']['SystemProfile'] = get_sys_profile()
     report['Puppet_Version'] = puppet_vers()
-    report['Puppet'] = puppet_report()
-    report['osquery'] = osquery_log()
-    report['Facter'] = facter_report()
+    report['Puppet'] = get_puppet_report()
+    report['osquery'] = get_osquery_report()
+    report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
 
     ServerURL, NameType, bu_key = read_serverpref()
     net_config = SCDynamicStoreCreate(None, "net", None, None)
-    name = get_machinename(net_config, NameType)
+    name = get_machine_name(net_config, NameType)
     run_uuid = uuid.uuid4()
     submission = gimme_data(serial, bu_key, name, run_uuid, report)
 
@@ -138,7 +138,7 @@ def format_plist(plist):
     return FoundationPlist.writePlistToString(plist)
 
 
-def sys_profile():
+def get_sys_profile():
     """Get sysprofiler info.
 
     Returns:
@@ -193,7 +193,7 @@ def puppet_vers():
     return puppet_version
 
 
-def puppet_report():
+def get_puppet_report():
     """Check puppet report path and parse yaml"""
     puppet_reports = (
         '/opt/puppetlabs/puppet/cache/state/last_run_summary.yaml',
@@ -223,7 +223,7 @@ def puppet_report():
     return puppetreport
 
 
-def osquery_log():
+def get_osquery_report():
     """Return osquery log json dump.
 
     Iterate over results logfile for expected json dumps.
@@ -259,7 +259,7 @@ def osquery_log():
         return osquery
 
 
-def facter_report():
+def get_facter_report():
     """Check for facter and sal-specific custom facts"""
     # Set the FACTERLIB environment variable if not already what we want
     desired_facter = '/usr/local/sal/facter'
@@ -305,7 +305,7 @@ def facter_report():
     return facter
 
 
-def get_machinename(net_config, nametype):
+def get_machine_name(net_config, nametype):
     """Return the ComputerName of this Mac."""
     sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
     return sys_info.get(nametype, None)
