@@ -16,18 +16,11 @@ import sys
 import urllib
 import uuid
 
-from Foundation import *
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
-# try to import from the default place Munki installs it
-try:
-    from munkilib import FoundationPlist
-    from munkilib import munkicommon
-except ImportError:
-    sys.path.append('/usr/local/munki')
-    from munkilib import FoundationPlist
-    from munkilib import munkicommon
-
+sys.path.append('/usr/local/munki')
+from munkilib import FoundationPlist
+from munkilib import munkicommon
 sys.path.append('/usr/local/sal')
 import utils
 import yaml
