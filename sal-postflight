@@ -25,12 +25,16 @@ sys.path.append('/usr/local/sal')
 import utils
 import yaml
 
+
 BUNDLE_ID = 'com.github.salopensource.sal'
 default_debug = False
 VERSION = '0.7.6'
 
+
 def main():
-    debug = usage()
+    opts = get_options()
+    munkicommon.verbose = (
+        5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
     exit_if_not_root()
 
     report = get_managed_install_report(debug)
@@ -61,16 +65,16 @@ def main():
         send_remote(ServerURL, copy.copy(submission), catalog_data, check_list)
 
 
-def usage():
-    """gets debug opt from CLI, or returns None"""
+def get_options():
+    """Return commandline options."""
     usage = "%prog [options]"
-    o = optparse.OptionParser(usage=usage)
-    o.add_option("--debug",
-            default=default_debug, action="store_true",
-            help=("Enable debug output. "))
-    opts, args = o.parse_args()
-    debug = opts.debug
-    return debug
+    option_parser = optparse.OptionParser(usage=usage)
+    option_parser.add_option(
+        "-d", "--debug", default=default_debug, action="store_true",
+        help="Enable debug output.")
+    # We have no arguments, so don't store the results.
+    opts, _ = option_parser.parse_args()
+    return opts
 
 
 def exit_if_not_root():
