@@ -282,7 +282,7 @@ def facter_report():
     report = None
     if facter_path:
         try:
-            command = [facter_path, '--puppet', '--yaml', '--show-legacy']
+            command = [facter_path, '--puppet', '--yaml']
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
             munkicommon.display_warning('Issue getting facter report:')
