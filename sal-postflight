@@ -415,8 +415,8 @@ def send_install(ServerURL, install_data):
                 stdout_list = stdout.split("\n")
                 if "<h1>Page not found</h1>" in stdout_list:
                     return
-                munkicommon.debug2("Install.log Response:")
-                munkicommon.debug2(stdout)
+                munkicommon.display_debug2("Install.log Response:")
+                munkicommon.display_debug2(stdout)
 
 
 def send_catalogs(ServerURL, catalog_data):
