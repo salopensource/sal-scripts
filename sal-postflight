@@ -11,6 +11,7 @@ import hashlib
 import json
 import optparse
 import os
+from pprint import pformat
 import subprocess
 import sys
 import urllib
@@ -27,27 +28,24 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-default_debug = False
 VERSION = '0.7.6'
 
 
 def main():
-    opts = get_options()
-    munkicommon.verbose = (
-        5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
+    set_verbosity()
     exit_if_not_root()
 
-    report = get_managed_install_report(debug)
+    report = get_managed_install_report()
     serial = report['MachineInfo'].get('serial_number')
     if not serial:
         sys.exit('Unable to get MachineInfo from ManagedInstallReport.plist. '
                  'This is usually due to running Munki in Apple Software only '
                  'mode.')
-    report['MachineInfo']['SystemProfile'] = sys_profile(debug)
-    report['Puppet_Version'] = puppet_vers(debug)
-    report['Puppet'] = puppet_report(debug)
-    report['osquery'] = osquery_log(debug)
-    report['Facter'] = facter_report(debug)
+    report['MachineInfo']['SystemProfile'] = sys_profile()
+    report['Puppet_Version'] = puppet_vers()
+    report['Puppet'] = puppet_report()
+    report['osquery'] = osquery_log()
+    report['Facter'] = facter_report()
     report['os_family'] = 'Darwin'
 
     ServerURL, NameType, bu_key = read_serverpref()
@@ -65,12 +63,19 @@ def main():
         send_remote(ServerURL, copy.copy(submission), catalog_data, check_list)
 
 
+def set_verbosity():
+    """Set the verbosity based on options or munki verbosity level."""
+    opts = get_options()
+    munkicommon.verbose = (
+        5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
+
+
 def get_options():
     """Return commandline options."""
     usage = "%prog [options]"
     option_parser = optparse.OptionParser(usage=usage)
     option_parser.add_option(
-        "-d", "--debug", default=default_debug, action="store_true",
+        "-d", "--debug", default=False, action="store_true",
         help="Enable debug output.")
     # We have no arguments, so don't store the results.
     opts, _ = option_parser.parse_args()
@@ -81,8 +86,7 @@ def exit_if_not_root():
     """Exit if the executing user is not root."""
     uid = os.geteuid()
     if uid != 0:
-        print "Manually running the script requires sudo"
-        sys.exit(0)
+        sys.exit("Manually running this script requires sudo.")
 
 
 def read_serverpref():
@@ -98,8 +102,7 @@ def read_serverpref():
 
     for key, val in required_prefs.items():
         if not val:
-            print 'Required Sal preference "{}" is not set.'.format(key)
-            sys.exit(1)
+            sys.exit('Required Sal preference "{}" is not set.'.format(key))
 
     # Get optional preferences.
     name_type = utils.pref('NameType') or 'ComputerName'
@@ -107,11 +110,8 @@ def read_serverpref():
     return (required_prefs["ServerURL"], name_type, required_prefs["key"])
 
 
-def get_managed_install_report(debug):
+def get_managed_install_report():
     """Return Munki ManagedInstallsReport.plist as a plist dict.
-
-    Args:
-        debug: Boolean whether to print extra processing info.
 
     Returns:
         ManagedInstalls report for last Munki run as a plist
@@ -126,18 +126,20 @@ def get_managed_install_report(debug):
     if 'MachineInfo' not in munki_report:
         munki_report['MachineInfo'] = {}
 
-    if debug:
-        print 'DEBUG: ManagedInstallReport.plist'
-        print munki_report
+    munkicommon.display_debug2('ManagedInstallReport.plist:')
+    munkicommon.display_debug2(format_plist(munki_report))
 
     return munki_report
 
 
-def sys_profile(debug):
-    """Get sysprofiler info.
+def format_plist(plist):
+    """Format a plist as a string for debug output."""
+    # For now, just dump it.
+    return FoundationPlist.writePlistToString(plist)
 
-    Args:
-        debug: Boolean whether to print extra processing info.
+
+def sys_profile():
+    """Get sysprofiler info.
 
     Returns:
         System Profiler report for networking and hardware as a plist
@@ -158,14 +160,14 @@ def sys_profile(debug):
         except FoundationPlist.FoundationPlistException:
             pass
 
-    if debug:
-        print 'DEBUG: System Profiler SPNetworkDataType and SPHardwareDataType'
-        print system_profile
+        munkicommon.display_debug2(
+            'System Profiler SPNetworkDataType and SPHardwareDataType:')
+        munkicommon.display_debug2(format_plist(system_profile))
 
     return system_profile
 
 
-def puppet_vers(debug):
+def puppet_vers():
     """Return puppet version as a string or None if not installed."""
     puppet_paths = (
         '/opt/puppetlabs/bin/puppet',
@@ -182,14 +184,16 @@ def puppet_vers(debug):
             command = [puppet_path, '--version']
             puppet_version = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
-            if debug:
-                print 'DEBUG: issue getting puppet version'
-                print error.message
+            munkicommon.display_warning('Issue getting puppet version')
+            munkicommon.display_warning(error.message)
+            puppet_version = "Not Found"
+
+    munkicommon.display_debug2('Puppet Version: {}'.format(puppet_version))
 
     return puppet_version
 
 
-def puppet_report(debug):
+def puppet_report():
     """Check puppet report path and parse yaml"""
     puppet_reports = (
         '/opt/puppetlabs/puppet/cache/state/last_run_summary.yaml',
@@ -212,21 +216,22 @@ def puppet_report(debug):
     if puppetreport:
         if puppetreport['version']['config'] is None:
             puppetreport['version']['config'] = 'None'
-        if debug:
-            print 'DEBUG: Puppet Report'
-            print puppetreport
+
+        munkicommon.display_debug2('Puppet Report:')
+        munkicommon.display_debug2(pformat(puppetreport))
 
     return puppetreport
 
 
-def osquery_log(debug):
+def osquery_log():
     """Return osquery log json dump.
 
     Iterate over results logfile for expected json dumps.
     """
     osquery_results = '/var/log/osquery/osqueryd.results.log'
+    # TODO: This needs a refactoring.
+    osquery = []
     if os.path.isfile(osquery_results):
-        osquery = []
         with open(osquery_results) as osquery_log:
             loglines = osquery_log.readlines()
 
@@ -235,21 +240,26 @@ def osquery_log(debug):
                 continue
             try:
                 if 'diffResults' not in json.loads(line):
-                    print ('osquery logs are not in the correct format. Use '
-                           '"log_result_events": "false" in your settings.')
+                    munkicommon.display_warning(
+                        'osquery logs are not in the correct format. Use '
+                        '"log_result_events": "false" in your settings.')
                     return osquery
                 else:
                     osquery.append(json.loads(line))
             except ValueError:
+                # The json.loads throws: ValueError: No JSON object could be
+                # decoded. (input = '\n')
                 return osquery
+
+        munkicommon.display_debug2("osquery Report:")
+        munkicommon.display_debug2(pformat(osquery))
         return osquery
     else:
-        if debug:
-            print 'DEBUG: Not using osquery'
+        munkicommon.display_debug2('Not using osquery')
         return osquery
 
 
-def facter_report(debug):
+def facter_report():
     """Check for facter and sal-specific custom facts"""
     # Set the FACTERLIB environment variable if not already what we want
     desired_facter = '/usr/local/sal/facter'
@@ -272,12 +282,11 @@ def facter_report(debug):
     report = None
     if facter_path:
         try:
-            command = [facter_path, '--puppet', '--yaml']
+            command = [facter_path, '--puppet', '--yaml', '--show-legacy']
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
-            if debug:
-                print 'DEBUG: Issue getting facter report.'
-                print error.message
+            munkicommon.display_warning('Issue getting facter report:')
+            munkicommon.display_warning(error.message)
 
     facter = {}
     if report:
@@ -286,9 +295,8 @@ def facter_report(debug):
         except yaml.parser.ParserError:
             pass
 
-    if debug:
-        print 'DEBUG: Facter Output'
-        print facter
+    munkicommon.display_debug2('Facter Output:')
+    munkicommon.display_debug2(pformat(facter))
 
     if facterflag:
         # restore pre-run facterlib
@@ -339,7 +347,8 @@ def get_compressed_b64encoded_report(report):
     try:
         plist = FoundationPlist.writePlistToString(report)
     except FoundationPlist.NSPropertyListSerializationException as error:
-        print "Error serializing generated report: {}".format(error.message)
+        munkicommon.display_warning(
+            "Error serializing generated report: {}".format(error.message))
         plist = ""
 
     zipped = bz2.compress(plist)
@@ -354,8 +363,9 @@ def send_checkin(ServerURL, checkin_data, report):
     urldata = urllib.urlencode(checkin_data)
     (stdout, stderr) = utils.curl(checkinurl, urldata)
     if stderr:
-        print stderr
-    print stdout
+        munkicommon.display_warning(stderr)
+    munkicommon.display_debug2("Checkin Response:")
+    munkicommon.display_debug2(stdout)
 
 
 def send_hashed(ServerURL, hashed_data):
@@ -377,8 +387,9 @@ def send_hashed(ServerURL, hashed_data):
             urldata = urllib.urlencode(hashed_data)
             (stdout, stderr) = utils.curl(inventorysubmiturl, urldata)
             if stderr:
-                print stderr
-            print stdout
+                munkicommon.display_warning(stderr)
+            munkicommon.display_debug2("Hashed Report Response:")
+            munkicommon.display_debug2(stdout)
 
 
 def send_install(ServerURL, install_data):
@@ -399,12 +410,13 @@ def send_install(ServerURL, install_data):
             urldata = urllib.urlencode(install_data)
             (stdout, stderr) = utils.curl(installlogsubmiturl, urldata)
             if stderr:
-                print stderr
+                munkicommon.display_warning(stderr)
             else:
                 stdout_list = stdout.split("\n")
                 if "<h1>Page not found</h1>" in stdout_list:
                     return
-                print stdout
+                munkicommon.debug2("Install.log Response:")
+                munkicommon.debug2(stdout)
 
 
 def send_catalogs(ServerURL, catalog_data):
@@ -429,6 +441,10 @@ def send_catalogs(ServerURL, catalog_data):
             return FoundationPlist.readPlistFromString(catalog_out), check_list
         except:
             return {}, check_list
+        if stderr:
+            munkicommon.display_warning(stderr)
+        munkicommon.display_debug2("Catalogs:")
+        munkicommon.display_debug2(catalog_data)
     else:
         return False, check_list.append(dict())
 
@@ -450,9 +466,10 @@ def send_remote(ServerURL, remote_data, catalog_data, check_list):
                     urldata = urllib.urlencode(remote_data)
                     (stdout, stderr) = utils.curl(catalogsubmiturl, urldata)
                     if stderr:
-                        print stderr
+                        munkicommon.display_warning(stderr)
                     if stdout:
-                        print stdout
+                        munkicommon.display_debug2("Remote:")
+                        munkicommon.display_debug2(stdout)
 
 
 if __name__ == '__main__':
