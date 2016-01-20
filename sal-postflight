@@ -48,7 +48,7 @@ def main():
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
 
-    ServerURL, NameType, bu_key = read_serverpref()
+    ServerURL, NameType, bu_key = get_server_prefs()
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     name = get_machine_name(net_config, NameType)
     run_uuid = uuid.uuid4()
@@ -57,10 +57,7 @@ def main():
     send_checkin(ServerURL, copy.copy(submission), report)
     send_hashed(ServerURL, copy.copy(submission))
     send_install(ServerURL, copy.copy(submission))
-    catalog_data, check_list = send_catalogs(
-        ServerURL, copy.copy(submission))
-    if catalog_data != False:
-        send_remote(ServerURL, copy.copy(submission), catalog_data, check_list)
+    send_catalogs(ServerURL, copy.copy(submission))
 
 
 def set_verbosity():
@@ -89,7 +86,7 @@ def exit_if_not_root():
         sys.exit("Manually running this script requires sudo.")
 
 
-def read_serverpref():
+def get_server_prefs():
     """Get Sal preferences, bailing if required info is missing.
 
     Returns:
@@ -357,119 +354,133 @@ def get_compressed_b64encoded_report(report):
     return encoded
 
 
+def get_compressed_encoded(text):
+    """Return a b64 encoded, bz2 compressed copy of text."""
+    return base64.b64encode(zipped.bz2.compress(text))
+
+
+def send_report(url, report):
+    encoded_data = urllib.urlencode(report)
+    stdout, stderr = utils.curl(url, encoded_data)
+    if stderr:
+        munkicommon.display_warning(stderr)
+    stdout_list = stdout.split("\n")
+    if not "<h1>Page not found</h1>" in stdout_list:
+        munkicommon.display_debug2(stdout)
+    return stdout, stderr
+
+
 def send_checkin(ServerURL, checkin_data, report):
     checkinurl = os.path.join(ServerURL, 'checkin', '')
     checkin_data['base64bz2report'] = get_compressed_b64encoded_report(report)
-    urldata = urllib.urlencode(checkin_data)
-    (stdout, stderr) = utils.curl(checkinurl, urldata)
-    if stderr:
-        munkicommon.display_warning(stderr)
     munkicommon.display_debug2("Checkin Response:")
-    munkicommon.display_debug2(stdout)
+    send_report(checkinurl, checkin_data)
 
 
 def send_hashed(ServerURL, hashed_data):
     hashurl = os.path.join(
         ServerURL, 'inventory/hash', hashed_data['serial'], '')
     inventorysubmiturl = os.path.join(ServerURL, 'inventory/submit', '')
+
     inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
-    serverhash = None
 
-    if os.path.isfile(inventoryplist):
-        with open(inventoryplist) as ifile:
-            inventory_text = ifile.read()
-
-        inventoryhash = hashlib.sha256(inventory_text).hexdigest()
-        (serverhash, stderr) = utils.curl(hashurl)
-        if serverhash != inventoryhash:
+    inventory, inventory_hash = get_file_and_hash(inventoryplist)
+    if inventory:
+        serverhash = None
+        serverhash, _ = utils.curl(hashurl)
+        if serverhash != inventory_hash:
             hashed_data['base64bz2inventory'] = (
-                base64.b64encode(bz2.compress(inventory_text)))
-            urldata = urllib.urlencode(hashed_data)
-            (stdout, stderr) = utils.curl(inventorysubmiturl, urldata)
-            if stderr:
-                munkicommon.display_warning(stderr)
+                base64.b64encode(bz2.compress(inventory)))
             munkicommon.display_debug2("Hashed Report Response:")
-            munkicommon.display_debug2(stdout)
+            send_report(inventorysubmiturl, hashed_data)
+
+
+def get_file_and_hash(path):
+    """Given a filepath, return a tuple of (file contents, sha256."""
+    text = ""
+    if os.path.isfile(path):
+        with open(path) as ifile:
+            text = ifile.read()
+
+    return (text, hashlib.sha256(text).hexdigest())
 
 
 def send_install(ServerURL, install_data):
-    hashurl = os.path.join(ServerURL, 'installlog/hash',
+    hash_url = os.path.join(ServerURL, 'installlog/hash',
                            install_data["serial"], '')
-    installlogsubmiturl = os.path.join(ServerURL, 'installlog/submit', '')
+    install_log_submit_url = os.path.join(ServerURL, 'installlog/submit', '')
+
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
-    installlog = os.path.join(managed_install_dir, 'Logs', 'Install.log')
-    serverhash = None
-    if os.path.isfile(installlog):
-        with open(installlog) as ifile:
-            installlog_text = ifile.read()
-        localhash = hashlib.sha256(installlog_text).hexdigest()
-        (serverhash, stderr) = utils.curl(hashurl)
-        if serverhash != localhash or stderr != None:
+    install_log = os.path.join(managed_install_dir, 'Logs', 'Install.log')
+    install_log_text, install_log_hash = get_file_and_hash(install_log)
+
+    if install_log_text:
+        server_hash = None
+        server_hash, stderr = utils.curl(hash_url)
+        if server_hash != install_log_hash or stderr is not None:
             install_data['base64bz2installlog'] = (
-                base64.b64encode(bz2.compress(installlog_text)))
-            urldata = urllib.urlencode(install_data)
-            (stdout, stderr) = utils.curl(installlogsubmiturl, urldata)
-            if stderr:
-                munkicommon.display_warning(stderr)
-            else:
-                stdout_list = stdout.split("\n")
-                if "<h1>Page not found</h1>" in stdout_list:
-                    return
-                munkicommon.display_debug2("Install.log Response:")
-                munkicommon.display_debug2(stdout)
+                base64.b64encode(bz2.compress(install_log_text)))
+            munkicommon.display_debug2("Install.log Response:")
+            send_report(install_log_submit_url, install_data)
 
 
 def send_catalogs(ServerURL, catalog_data):
     hashurl = os.path.join(ServerURL, 'catalog/hash', '')
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-    catalog_dir = os.path.join(managed_install_dir, 'catalogs')
-    check_list = []
-    if os.path.exists(catalog_dir):
-        for file in os.listdir(catalog_dir):
-            # don't operate on hidden files (.DS_Store etc)
-            if not file.startswith('.'):
-                with open(os.path.join(catalog_dir, file)) as ifile:
-                    catalog_text = ifile.read()
-                catalog_hash = hashlib.sha256(catalog_text).hexdigest()
-                check_list.append({'name': file, 'sha256hash':catalog_hash})
-
-        check_plist = FoundationPlist.writePlistToString(check_list)
-        catalog_data['catalogs'] = base64.b64encode(bz2.compress(check_plist))
-        urldata = urllib.urlencode(catalog_data)
-        (catalog_out, stderr) = utils.curl(hashurl, urldata)
-        try:
-            return FoundationPlist.readPlistFromString(catalog_out), check_list
-        except:
-            return {}, check_list
-        if stderr:
-            munkicommon.display_warning(stderr)
-        munkicommon.display_debug2("Catalogs:")
-        munkicommon.display_debug2(catalog_data)
-    else:
-        return False, check_list.append(dict())
-
-
-def send_remote(ServerURL, remote_data, catalog_data, check_list):
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-    catalog_dir = os.path.join(managed_install_dir, 'catalogs')
     catalogsubmiturl = os.path.join(ServerURL, 'catalog/submit', '')
-    for remote_item in catalog_data:
-        for stored_item in check_list:
-            if stored_item['name'] == remote_item['name']:
-                if stored_item['sha256hash'] != remote_item['sha256hash']:
-                    with open(os.path.join(
-                            catalog_dir, stored_item['name'])) as ifile:
-                        remote_data_text = ifile.read()
-                    remote_data['base64bz2catalog'] = (
-                        base64.b64encode(bz2.compress(remote_data_text)))
-                    remote_data['name'] = stored_item['name']
-                    urldata = urllib.urlencode(remote_data)
-                    (stdout, stderr) = utils.curl(catalogsubmiturl, urldata)
-                    if stderr:
-                        munkicommon.display_warning(stderr)
-                    if stdout:
-                        munkicommon.display_debug2("Remote:")
-                        munkicommon.display_debug2(stdout)
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    catalog_dir = os.path.join(managed_install_dir, 'catalogs')
+
+    # Build a list of dicts of hashes from the machine's munki catalogs.
+    # {'name': catalog name, 'sha256hash': hash}
+    local_catalogs = {}
+    local_catalogs_hashes = []
+    if os.path.exists(catalog_dir):
+        for catalog in [os.path.join(catalog_dir, cat) for cat in
+                        os.listdir(catalog_dir) if not cat.startswith('.')]:
+            contents, hashed = get_file_and_hash(catalog)
+            local_catalogs[catalog] = contents
+            local_catalogs_hashes.append(
+                {'name': catalog, 'sha256hash': hashed})
+
+        check_plist = FoundationPlist.writePlistToString(local_catalogs_hashes)
+        catalog_data['catalogs'] = base64.b64encode(bz2.compress(check_plist))
+        response, stderr = send_report(hashurl, catalog_data)
+
+        try:
+            remote_data = FoundationPlist.readPlistFromString(response)
+        except FoundationPlist.NSPropertyListSerializationException:
+            remote_data = {}
+
+    for remote_item in remote_data:
+        for local_item in local_catalogs_hashes:
+            local_name = local_item['name']
+            if local_name == remote_item['name']:
+                if local_item['sha256hash'] != remote_item['sha256hash']:
+                    catalog_data['base64bz2catalog'] = get_compressed_encoded(
+                        local_catalogs[local_name])
+                    catalog_data['name'] = local_name
+                    munkicommon.display_debug2(
+                        "Submitting Catalog: {}".format(local_name))
+                    send_report(catalogsubmiturl, catalog_data)
+
+
+# def send_remote(ServerURL, remote_data, catalog_data, check_list):
+#     managed_install_dir = munkicommon.pref('ManagedInstallDir')
+#     catalog_dir = os.path.join(managed_install_dir, 'catalogs')
+#     catalogsubmiturl = os.path.join(ServerURL, 'catalog/submit', '')
+
+#     for remote_item in catalog_data:
+#         for stored_item in check_list:
+#             if stored_item['name'] == remote_item['name']:
+#                 if stored_item['sha256hash'] != remote_item['sha256hash']:
+#                     with open(os.path.join(
+#                             catalog_dir, stored_item['name'])) as ifile:
+#                         remote_data_text = ifile.read()
+#                     remote_data['base64bz2catalog'] = (
+#                         base64.b64encode(bz2.compress(remote_data_text)))
+#                     remote_data['name'] = stored_item['name']
+
+#                     send_report(catalogsubmiturl, remote_data)
 
 
 if __name__ == '__main__':
