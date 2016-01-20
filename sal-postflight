@@ -54,6 +54,9 @@ def main():
     run_uuid = uuid.uuid4()
     submission = gimme_data(serial, bu_key, name, run_uuid, report)
 
+    # Shallow copy the submission dict to reuse common values and avoid
+    # wasting bandwidth by sending unrelated data. (Alternately, we
+    # could `del submission[some_key]`).
     send_checkin(ServerURL, copy.copy(submission), report)
     send_hashed(ServerURL, copy.copy(submission))
     send_install(ServerURL, copy.copy(submission))
@@ -339,24 +342,21 @@ def get_disk_size(path='/'):
     return int(total)
 
 
-def get_compressed_b64encoded_report(report):
+def sub_format_plist(plist):
     """Return a b64 encoded, bz2 compressed copy of report."""
     try:
-        plist = FoundationPlist.writePlistToString(report)
+        data = FoundationPlist.writePlistToString(plist)
     except FoundationPlist.NSPropertyListSerializationException as error:
         munkicommon.display_warning(
             "Error serializing generated report: {}".format(error.message))
-        plist = ""
+        data = ""
 
-    zipped = bz2.compress(plist)
-    encoded = base64.b64encode(zipped)
-
-    return encoded
+    return sub_format(data)
 
 
-def get_compressed_encoded(text):
+def sub_format(text):
     """Return a b64 encoded, bz2 compressed copy of text."""
-    return base64.b64encode(zipped.bz2.compress(text))
+    return base64.b64encode(bz2.compress(text))
 
 
 def send_report(url, report):
@@ -372,7 +372,7 @@ def send_report(url, report):
 
 def send_checkin(ServerURL, checkin_data, report):
     checkinurl = os.path.join(ServerURL, 'checkin', '')
-    checkin_data['base64bz2report'] = get_compressed_b64encoded_report(report)
+    checkin_data['base64bz2report'] = sub_format_plist(report)
     munkicommon.display_debug2("Checkin Response:")
     send_report(checkinurl, checkin_data)
 
@@ -431,56 +431,40 @@ def send_catalogs(ServerURL, catalog_data):
     catalog_dir = os.path.join(managed_install_dir, 'catalogs')
 
     # Build a list of dicts of hashes from the machine's munki catalogs.
-    # {'name': catalog name, 'sha256hash': hash}
-    local_catalogs = {}
-    local_catalogs_hashes = []
-    if os.path.exists(catalog_dir):
-        for catalog in [os.path.join(catalog_dir, cat) for cat in
-                        os.listdir(catalog_dir) if not cat.startswith('.')]:
-            contents, hashed = get_file_and_hash(catalog)
-            local_catalogs[catalog] = contents
-            local_catalogs_hashes.append(
-                {'name': catalog, 'sha256hash': hashed})
+    catalogs = {}
+    for catalog in [os.path.join(catalog_dir, cat) for cat in
+                    os.listdir(catalog_dir) if not cat.startswith('.')]:
+        contents, hashed = get_file_and_hash(catalog)
+        catalogs[catalog] = {'contents': sub_format(contents), 'local_hash':
+                             hashed, 'remote_hash': ''}
 
-        check_plist = FoundationPlist.writePlistToString(local_catalogs_hashes)
-        catalog_data['catalogs'] = base64.b64encode(bz2.compress(check_plist))
-        response, stderr = send_report(hashurl, catalog_data)
+    # Copy the catalog_data object so we don't later send extra data.
+    hash_submission = copy.copy(catalog_data)
+    # The server doesn't actually need the local hash, so omit it.
+    catalogs_hashes = [{'name': key, 'sha256hash': ""} for
+                       key, val in catalogs.items()]
+    hash_submission['catalogs'] = sub_format_plist(catalogs_hashes)
+    response, _ = send_report(hashurl, hash_submission)
 
-        try:
-            remote_data = FoundationPlist.readPlistFromString(response)
-        except FoundationPlist.NSPropertyListSerializationException:
-            remote_data = {}
+    # Add remote_hashes to data structure.
+    try:
+        remote_data = FoundationPlist.readPlistFromString(response)
+    except FoundationPlist.NSPropertyListSerializationException:
+        remote_data = {}
+    for item in remote_data:
+        catalogs[item['name']]['remote_hash'] = item['sha256hash']
 
-    for remote_item in remote_data:
-        for local_item in local_catalogs_hashes:
-            local_name = local_item['name']
-            if local_name == remote_item['name']:
-                if local_item['sha256hash'] != remote_item['sha256hash']:
-                    catalog_data['base64bz2catalog'] = get_compressed_encoded(
-                        local_catalogs[local_name])
-                    catalog_data['name'] = local_name
-                    munkicommon.display_debug2(
-                        "Submitting Catalog: {}".format(local_name))
-                    send_report(catalogsubmiturl, catalog_data)
-
-
-# def send_remote(ServerURL, remote_data, catalog_data, check_list):
-#     managed_install_dir = munkicommon.pref('ManagedInstallDir')
-#     catalog_dir = os.path.join(managed_install_dir, 'catalogs')
-#     catalogsubmiturl = os.path.join(ServerURL, 'catalog/submit', '')
-
-#     for remote_item in catalog_data:
-#         for stored_item in check_list:
-#             if stored_item['name'] == remote_item['name']:
-#                 if stored_item['sha256hash'] != remote_item['sha256hash']:
-#                     with open(os.path.join(
-#                             catalog_dir, stored_item['name'])) as ifile:
-#                         remote_data_text = ifile.read()
-#                     remote_data['base64bz2catalog'] = (
-#                         base64.b64encode(bz2.compress(remote_data_text)))
-#                     remote_data['name'] = stored_item['name']
-
-#                     send_report(catalogsubmiturl, remote_data)
+    # Build a generator of items with non-matching hashes.
+    # Submit only out-of-date items.
+    out_of_date = ((item_name, item['contents']) for
+                   item_name, item in catalogs.items() if
+                   item['local_hash'] != item['remote_hash'])
+    for name, contents in out_of_date:
+        catalog_data['base64bz2catalog'] = sub_format(contents)
+        catalog_data['name'] = name
+        munkicommon.display_debug2(
+            "Submitting Catalog: {}".format(name))
+        send_report(catalogsubmiturl, catalog_data)
 
 
 if __name__ == '__main__':
