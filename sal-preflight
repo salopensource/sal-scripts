@@ -16,16 +16,20 @@ import shutil
 import os
 import json
 
+
 def is_exe(fpath):
     return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
 
 def mkdir_p(path):
     try:
         os.makedirs(path)
-    except OSError as exc: # Python >2.5
+    except OSError as exc:  # Python >2.5
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
-        else: raise
+        else:
+            raise
+
 
 def main():
     # Test if osqueryi is installed. No point continuing if not.
@@ -34,11 +38,11 @@ def main():
 
     # Get the SalURL from the prefs
     sal_url = utils.pref('ServerURL')
-    preflighturl = sal_url+'/preflight/'
+    preflighturl = sal_url + '/preflight/'
     # Get the name of the launchdaemon from the prefs
     launchd_name = utils.pref('osquery_launchd')
-    launchd_path = '/Library/LaunchDaemons/'+launchd_name
-    
+    launchd_path = '/Library/LaunchDaemons/' + launchd_name
+
     (stdout, stderr) = utils.curl(preflighturl)
     if stderr:
         print stderr

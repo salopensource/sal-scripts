@@ -28,7 +28,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '0.7.6'
+VERSION = '0.8.0'
 
 
 def main():
