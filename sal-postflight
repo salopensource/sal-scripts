@@ -302,7 +302,22 @@ def get_facter_report():
         # restore pre-run facterlib
         os.environ['FACTERLIB'] = current_facterlib
 
-    return facter
+    return hashrocket_flatten_dict(facter)
+
+
+def hashrocket_flatten_dict(input_dict):
+    """Flattens the output from Facter 3"""
+
+    result_dict = {}
+    for k, v in input_dict.items():
+        if type(v) == dict:
+            # Need to recurse at this point
+            for nk, nv in hashrocket_flatten_dict(v).items():
+                result_dict['=>'.join([str(k), nk])] = nv
+        else:
+            result_dict[str(k)] = str(v)
+
+    return result_dict
 
 
 def get_machine_name(net_config, nametype):
@@ -365,7 +380,7 @@ def send_report(url, report):
     if stderr:
         munkicommon.display_warning(stderr)
     stdout_list = stdout.split("\n")
-    if not "<h1>Page not found</h1>" in stdout_list:
+    if "<h1>Page not found</h1>" not in stdout_list:
         munkicommon.display_debug2(stdout)
     return stdout, stderr
 
@@ -406,8 +421,11 @@ def get_file_and_hash(path):
 
 
 def send_install(ServerURL, install_data):
-    hash_url = os.path.join(ServerURL, 'installlog/hash',
-                           install_data["serial"], '')
+    hash_url = os.path.join(
+        ServerURL,
+        'installlog/hash',
+        install_data["serial"],
+        '')
     install_log_submit_url = os.path.join(ServerURL, 'installlog/submit', '')
 
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
