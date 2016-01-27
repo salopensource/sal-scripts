@@ -52,7 +52,7 @@ def main():
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     name = get_machine_name(net_config, NameType)
     run_uuid = uuid.uuid4()
-    submission = gimme_data(serial, bu_key, name, run_uuid, report)
+    submission = gimme_data(serial, bu_key, name, run_uuid)
 
     # Shallow copy the submission dict to reuse common values and avoid
     # wasting bandwidth by sending unrelated data. (Alternately, we
@@ -310,13 +310,13 @@ def hashrocket_flatten_dict(input_dict):
     """Flattens the output from Facter 3"""
 
     result_dict = {}
-    for k, v in input_dict.items():
-        if type(v) == dict:
+    for fact_name, fact_value in input_dict.items():
+        if type(fact_value) == dict:
             # Need to recurse at this point
-            for nk, nv in hashrocket_flatten_dict(v).items():
-                result_dict['=>'.join([str(k), nk])] = nv
+            for new_key, new_value in hashrocket_flatten_dict(fact_value).items():
+                result_dict['=>'.join([fact_name, new_key])] = new_value
         else:
-            result_dict[str(k)] = str(v)
+            result_dict[fact_name] = fact_value
 
     return result_dict
 
@@ -327,7 +327,7 @@ def get_machine_name(net_config, nametype):
     return sys_info.get(nametype, None)
 
 
-def gimme_data(serial, bu_key, name, run_uuid, report):
+def gimme_data(serial, bu_key, name, run_uuid):
     """Build report object."""
     data = {}
     data['serial'] = serial.upper()
@@ -461,7 +461,7 @@ def send_catalogs(ServerURL, catalog_data):
     hash_submission = copy.copy(catalog_data)
     # The server doesn't actually need the local hash, so omit it.
     catalogs_hashes = [{'name': key, 'sha256hash': ""} for
-                       key, val in catalogs.items()]
+                       key in catalogs.keys()]
     hash_submission['catalogs'] = sub_format_plist(catalogs_hashes)
     response, _ = send_report(hashurl, hash_submission)
 
