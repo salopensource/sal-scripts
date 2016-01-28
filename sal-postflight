@@ -28,7 +28,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '0.8.0'
+VERSION = '0.8.1'
 
 
 def main():
@@ -171,8 +171,7 @@ def puppet_vers():
     """Return puppet version as a string or None if not installed."""
     puppet_paths = (
         '/opt/puppetlabs/bin/puppet',
-        '/usr/bin/puppet',
-        '/var/lib/puppet/state/last_run_summary.yaml')
+        '/usr/bin/puppet')
     puppet_path = None
     for path in puppet_paths:
         if os.path.exists(path):
