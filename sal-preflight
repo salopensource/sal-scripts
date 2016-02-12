@@ -32,42 +32,26 @@ def mkdir_p(path):
 
 
 def main():
-    # Test if osqueryi is installed. No point continuing if not.
-    if not is_exe('/usr/local/bin/osqueryi'):
-        sys.exit(0)
 
     # Get the SalURL from the prefs
     sal_url = utils.pref('ServerURL')
-    preflighturl = sal_url + '/preflight/'
-    # Get the name of the launchdaemon from the prefs
-    launchd_name = utils.pref('osquery_launchd')
-    launchd_path = '/Library/LaunchDaemons/' + launchd_name
+    preflighturl = sal_url + '/preflight_v2/'
 
-    (stdout, stderr) = utils.curl(preflighturl)
-    if stderr:
-        print stderr
-    if len(stdout) != 0:
-        # validate the json
-        try:
-            json.loads(stdout)
-        except:
-            sys.exit(0)
+    # Cleanup old config
+    if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
+        os.remove('/private/var/osquery/sal_packs/sal.conf')
 
-        print 'OSQuery configuration recieved'
-        print stdout
-        # Make the directories if needed
-        mkdir_p('/private/var/log/osquery')
-        mkdir_p('/private/var/osquery/sal_packs')
+    # (stdout, stderr) = utils.curl(preflighturl)
+    # if stderr:
+    #     print stderr
+    # if len(stdout) != 0:
+    #     # validate the json
+    #     try:
+    #         json.loads(stdout)
+    #     except:
+    #         sys.exit(0)
+    #
 
-        # Write out the osquery pack
-        if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
-            os.remove('/private/var/osquery/sal_packs/sal.conf')
-
-        with open("/private/var/osquery/sal_packs/sal.conf", "w") as conf_file:
-            conf_file.write(stdout)
-        # stop and reload the launchdaemon for osquery
-        subprocess.call(['/bin/launchctl', 'unload', launchd_path])
-        subprocess.call(['/bin/launchctl', 'load', launchd_path])
 
 if __name__ == '__main__':
     main()

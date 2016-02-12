@@ -29,7 +29,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '0.8.1'
+VERSION = '0.9.0'
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
     report['MachineInfo']['SystemProfile'] = get_sys_profile()
     report['Puppet_Version'] = puppet_vers()
     report['Puppet'] = get_puppet_report()
-    report['osquery'] = get_osquery_report()
+    # report['osquery'] = get_osquery_report()
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
 
@@ -224,40 +224,40 @@ def get_puppet_report():
     return puppetreport
 
 
-def get_osquery_report():
-    """Return osquery log json dump.
-
-    Iterate over results logfile for expected json dumps.
-    """
-    osquery_results = '/var/log/osquery/osqueryd.results.log'
-    # TODO: This needs a refactoring.
-    osquery = []
-    if os.path.isfile(osquery_results):
-        with open(osquery_results) as osquery_log:
-            loglines = osquery_log.readlines()
-
-        for line in loglines:
-            if 'logfile turned over due to size' in line:
-                continue
-            try:
-                if 'diffResults' not in json.loads(line):
-                    munkicommon.display_warning(
-                        'osquery logs are not in the correct format. Use '
-                        '"log_result_events": "false" in your settings.')
-                    return osquery
-                else:
-                    osquery.append(json.loads(line))
-            except ValueError:
-                # The json.loads throws: ValueError: No JSON object could be
-                # decoded. (input = '\n')
-                return osquery
-
-        munkicommon.display_debug2("osquery Report:")
-        munkicommon.display_debug2(pformat(osquery))
-        return osquery
-    else:
-        munkicommon.display_debug2('Not using osquery')
-        return osquery
+# def get_osquery_report():
+#     """Return osquery log json dump.
+#
+#     Iterate over results logfile for expected json dumps.
+#     """
+#     osquery_results = '/var/log/osquery/osqueryd.results.log'
+#     # TODO: This needs a refactoring.
+#     osquery = []
+#     if os.path.isfile(osquery_results):
+#         with open(osquery_results) as osquery_log:
+#             loglines = osquery_log.readlines()
+#
+#         for line in loglines:
+#             if 'logfile turned over due to size' in line:
+#                 continue
+#             try:
+#                 if 'diffResults' not in json.loads(line):
+#                     munkicommon.display_warning(
+#                         'osquery logs are not in the correct format. Use '
+#                         '"log_result_events": "false" in your settings.')
+#                     return osquery
+#                 else:
+#                     osquery.append(json.loads(line))
+#             except ValueError:
+#                 # The json.loads throws: ValueError: No JSON object could be
+#                 # decoded. (input = '\n')
+#                 return osquery
+#
+#         munkicommon.display_debug2("osquery Report:")
+#         munkicommon.display_debug2(pformat(osquery))
+#         return osquery
+#     else:
+#         munkicommon.display_debug2('Not using osquery')
+#         return osquery
 
 
 def get_facter_report():
