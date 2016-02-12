@@ -4,53 +4,13 @@
 #        Retrieves queries to run in osquery
 #
 
-import errno
-import sys
-sys.path.append('/usr/local/sal')
-import sys
-import subprocess
-from Foundation import *
-import utils
-import tempfile
-import shutil
+
 import os
-import json
-
-
-def is_exe(fpath):
-    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
 
 def main():
-
-    # Get the SalURL from the prefs
-    sal_url = utils.pref('ServerURL')
-    preflighturl = sal_url + '/preflight_v2/'
-
     # Cleanup old config
     if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
         os.remove('/private/var/osquery/sal_packs/sal.conf')
-
-    # (stdout, stderr) = utils.curl(preflighturl)
-    # if stderr:
-    #     print stderr
-    # if len(stdout) != 0:
-    #     # validate the json
-    #     try:
-    #         json.loads(stdout)
-    #     except:
-    #         sys.exit(0)
-    #
 
 
 if __name__ == '__main__':
