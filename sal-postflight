@@ -29,7 +29,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '0.9.0'
+VERSION = '0.9.1'
 
 
 def main():
@@ -325,7 +325,14 @@ def hashrocket_flatten_dict(input_dict):
 def get_machine_name(net_config, nametype):
     """Return the ComputerName of this Mac."""
     sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
-    return sys_info.get(nametype, None)
+    if sys_info:
+        return sys_info.get(nametype, None)
+    else:
+        command = ['/usr/sbin/scutil', '--get', 'ComputerName']
+        task = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = task.communicate()
+        name = stdout
+        return name
 
 
 def gimme_data(serial, bu_key, name, run_uuid):
