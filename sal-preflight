@@ -6,12 +6,170 @@
 
 
 import os
+import json
+import optparse
+import hashlib
+import shutil
+
+import sys
+sys.path.append('/usr/local/munki')
+from munkilib import FoundationPlist
+from munkilib import munkicommon
+sys.path.append('/usr/local/sal')
+import utils
+
+EXTERNAL_SCRIPTS_DIR = '/usr/local/sal/external_scripts'
 
 def main():
+    set_verbosity()
     # Cleanup old config
     if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
         os.remove('/private/var/osquery/sal_packs/sal.conf')
 
+    if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
+        os.makedirs(EXTERNAL_SCRIPTS_DIR)
+
+    server_scripts = get_checksum()
+    if server_scripts:
+        create_dirs(server_scripts)
+        download_scripts(server_scripts)
+
+    cleanup_old_scripts(server_scripts)
+    remove_empty_folders(EXTERNAL_SCRIPTS_DIR)
+
+def get_prefs():
+    # Check for mandatory prefs and bail if any are missing.
+    required_prefs = {}
+    required_prefs["key"] = utils.pref('key')
+    required_prefs["ServerURL"] = utils.pref('ServerURL').rstrip('/')
+
+    for key, val in required_prefs.items():
+        if not val:
+            sys.exit('Required Sal preference "{}" is not set.'.format(key))
+    return required_prefs
+
+def get_checksum():
+    """ Downloads the checkum of existing scripts.
+    Returns:
+        A dict with the script name, plugin name and hash of the script
+        or None if no external scripts are used.
+    """
+
+
+    preflight_url = "%s/preflight-v2/" % SERVER_URL
+    stdout, stderr = utils.curl(preflight_url)
+
+    if stderr:
+        munkicommon.display_warning(stderr)
+    stdout_list = stdout.split("\n")
+    if "<h1>Page not found</h1>" not in stdout_list:
+        munkicommon.display_debug2(stdout)
+
+    try:
+        return json.loads(stdout)
+    except:
+        munkicommon.display_debug2('Didn\'t receive valid JSON.')
+        return None
+
+def download_scripts(server_scripts):
+    """ Checksums the local scripts and if it's missing or doesn't match,
+    downloads it.
+    """
+    for server_script in server_scripts:
+        download_required = False
+        target_script = os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename'])
+        if not os.path.exists(target_script):
+            download_required = True
+        else:
+            unused_local_content, local_hash = utils.get_file_and_hash(target_script)
+            if local_hash != server_script['hash']:
+                download_required = True
+
+        if download_required == True:
+            download_and_write_script(server_script)
+
+def download_and_write_script(server_script):
+    """
+    Downloads a named script from the server, writes it and makes it execuatble.
+    """
+    script_url = "%s/preflight-v2/get-script/%s/%s/" % (SERVER_URL, server_script['plugin'], server_script['filename'])
+    stdout, stderr = utils.curl(script_url)
+    if stderr:
+        munkicommon.display_debug2('Error received downloading script:')
+        munkicommon.display_debug2(stderr)
+
+    script = open (os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename']), 'w')
+    try:
+        data = json.loads(stdout)
+    except:
+        munkicommon.display_debug2('Did not receive valid JSON when requesting script content.')
+        return False
+
+    script.write(data[0]['content'])
+    script.close()
+    os.chmod(os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename']), 0755)
+
+def create_dirs(server_scripts):
+    """ Creates any directories needed for external scripts
+    (named after the plugin)
+    """
+
+    for item in server_scripts:
+        if not os.path.exists(os.path.join(
+            EXTERNAL_SCRIPTS_DIR,
+            item['plugin']
+            )
+            ):
+            os.makedirs(os.path.join(EXTERNAL_SCRIPTS_DIR,item['plugin']))
+
+def cleanup_old_scripts(server_scripts):
+    """
+    Finds and removes scripts on disk that aren't needed anymore.
+    """
+    if server_scripts == None:
+        # No scripts from the server, nail the whole thing
+        shutil.rmtree(EXTERNAL_SCRIPTS_DIR)
+    else:
+        keep = []
+        for server_script in server_scripts:
+            keep.append(os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename']))
+
+        for root, subFolders, files in os.walk(EXTERNAL_SCRIPTS_DIR):
+            for script in files:
+                if os.path.join(root, script) not in keep:
+                    os.remove(os.path.join(root, script))
+
+def remove_empty_folders(path):
+    """
+    Function to remove empty folders
+    """
+
+    for root, dirs, files in os.walk(path,topdown=False):
+         for name in dirs:
+             fname = os.path.join(root,name)
+             if not os.listdir(fname):
+                 os.removedirs(fname)
+
+
+def set_verbosity():
+    """Set the verbosity based on options or munki verbosity level."""
+    opts = get_options()
+    munkicommon.verbose = (
+        5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
+
+def get_options():
+    """Return commandline options."""
+    usage = "%prog [options]"
+    option_parser = optparse.OptionParser(usage=usage)
+    option_parser.add_option(
+        "-d", "--debug", default=False, action="store_true",
+        help="Enable debug output.")
+    # We have no arguments, so don't store the results.
+    opts, _ = option_parser.parse_args()
+    return opts
 
 if __name__ == '__main__':
+    all_prefs = get_prefs()
+    SERVER_URL = all_prefs['ServerURL']
+    KEY = all_prefs['key']
     main()

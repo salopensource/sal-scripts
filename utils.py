@@ -4,6 +4,7 @@ from Foundation import *
 import os
 import sys
 import subprocess
+import hashlib
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 class GurlError(Exception):
@@ -60,3 +61,12 @@ def curl(url, data=None):
     if task.returncode == 0:
         stderr = None
     return stdout, stderr
+
+def get_file_and_hash(path):
+    """Given a filepath, return a tuple of (file contents, sha256."""
+    text = ""
+    if os.path.isfile(path):
+        with open(path) as ifile:
+            text = ifile.read()
+
+    return (text, hashlib.sha256(text).hexdigest())

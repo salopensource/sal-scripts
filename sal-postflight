@@ -16,6 +16,7 @@ import subprocess
 import sys
 import urllib
 import uuid
+import stat
 
 # pylint: disable=E0611
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
@@ -29,13 +30,14 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '0.9.1'
+VERSION = '1.0.0'
 
 
 def main():
     set_verbosity()
     exit_if_not_root()
-
+    runtype = get_runtype()
+    run_external_scripts(runtype)
     report = get_managed_install_report()
     serial = report['MachineInfo'].get('serial_number')
     if not serial:
@@ -45,7 +47,7 @@ def main():
     report['MachineInfo']['SystemProfile'] = get_sys_profile()
     report['Puppet_Version'] = puppet_vers()
     report['Puppet'] = get_puppet_report()
-    # report['osquery'] = get_osquery_report()
+    report['Plugin_Results'] = get_plugin_results('/usr/local/sal/plugin_results.plist')
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
 
@@ -53,15 +55,20 @@ def main():
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     name = get_machine_name(net_config, NameType)
     run_uuid = uuid.uuid4()
-    submission = gimme_data(serial, bu_key, name, run_uuid)
+    submission = get_data(serial, bu_key, name, run_uuid)
 
     # Shallow copy the submission dict to reuse common values and avoid
     # wasting bandwidth by sending unrelated data. (Alternately, we
     # could `del submission[some_key]`).
     send_checkin(ServerURL, copy.copy(submission), report)
-    send_hashed(ServerURL, copy.copy(submission))
-    send_install(ServerURL, copy.copy(submission))
-    send_catalogs(ServerURL, copy.copy(submission))
+    # Only perform these when a user isn't running MSC manually to speed up the run
+    if runtype != 'manual':
+        send_hashed(ServerURL, copy.copy(submission))
+        send_install(ServerURL, copy.copy(submission))
+        send_catalogs(ServerURL, copy.copy(submission))
+
+    if os.path.exists('/usr/local/sal/plugin_results.plist'):
+        os.remove('/usr/local/sal/plugin_results.plist')
 
 
 def set_verbosity():
@@ -132,6 +139,18 @@ def get_managed_install_report():
 
     return munki_report
 
+def get_plugin_results(plugin_results_plist):
+    """ Read external data plist if it exists and return a dict
+    """
+    if os.path.exists(plugin_results_plist):
+        try:
+            munkicommon.display_debug2(FoundationPlist.readPlist(plugin_results_plist))
+            return FoundationPlist.readPlist(plugin_results_plist)
+        except:
+            munkicommon.display_debug2('Could not read external data plist.')
+    else:
+        munkicommon.display_debug2('No external data plist found.')
+        return {}
 
 def format_plist(plist):
     """Format a plist as a string for debug output."""
@@ -223,43 +242,6 @@ def get_puppet_report():
 
     return puppetreport
 
-
-# def get_osquery_report():
-#     """Return osquery log json dump.
-#
-#     Iterate over results logfile for expected json dumps.
-#     """
-#     osquery_results = '/var/log/osquery/osqueryd.results.log'
-#     # TODO: This needs a refactoring.
-#     osquery = []
-#     if os.path.isfile(osquery_results):
-#         with open(osquery_results) as osquery_log:
-#             loglines = osquery_log.readlines()
-#
-#         for line in loglines:
-#             if 'logfile turned over due to size' in line:
-#                 continue
-#             try:
-#                 if 'diffResults' not in json.loads(line):
-#                     munkicommon.display_warning(
-#                         'osquery logs are not in the correct format. Use '
-#                         '"log_result_events": "false" in your settings.')
-#                     return osquery
-#                 else:
-#                     osquery.append(json.loads(line))
-#             except ValueError:
-#                 # The json.loads throws: ValueError: No JSON object could be
-#                 # decoded. (input = '\n')
-#                 return osquery
-#
-#         munkicommon.display_debug2("osquery Report:")
-#         munkicommon.display_debug2(pformat(osquery))
-#         return osquery
-#     else:
-#         munkicommon.display_debug2('Not using osquery')
-#         return osquery
-
-
 def get_facter_report():
     """Check for facter and sal-specific custom facts"""
     # Set the FACTERLIB environment variable if not already what we want
@@ -335,7 +317,7 @@ def get_machine_name(net_config, nametype):
         return name
 
 
-def gimme_data(serial, bu_key, name, run_uuid):
+def get_data(serial, bu_key, name, run_uuid):
     """Build report object."""
     data = {}
     data['serial'] = serial.upper()
@@ -346,6 +328,11 @@ def gimme_data(serial, bu_key, name, run_uuid):
     data['run_uuid'] = run_uuid
     return data
 
+def get_runtype():
+    if len(sys.argv) > 1:
+        return sys.argv[1]
+    else:
+        return 'custom'
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -408,7 +395,7 @@ def send_hashed(ServerURL, hashed_data):
 
     inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
 
-    inventory, inventory_hash = get_file_and_hash(inventoryplist)
+    inventory, inventory_hash = utils.get_file_and_hash(inventoryplist)
     if inventory:
         serverhash = None
         serverhash, _ = utils.curl(hashurl)
@@ -417,17 +404,6 @@ def send_hashed(ServerURL, hashed_data):
                 base64.b64encode(bz2.compress(inventory)))
             munkicommon.display_debug2("Hashed Report Response:")
             send_report(inventorysubmiturl, hashed_data)
-
-
-def get_file_and_hash(path):
-    """Given a filepath, return a tuple of (file contents, sha256."""
-    text = ""
-    if os.path.isfile(path):
-        with open(path) as ifile:
-            text = ifile.read()
-
-    return (text, hashlib.sha256(text).hexdigest())
-
 
 def send_install(ServerURL, install_data):
     hash_url = os.path.join(
@@ -439,7 +415,7 @@ def send_install(ServerURL, install_data):
 
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
     install_log = os.path.join(managed_install_dir, 'Logs', 'Install.log')
-    install_log_text, install_log_hash = get_file_and_hash(install_log)
+    install_log_text, install_log_hash = utils.get_file_and_hash(install_log)
 
     if install_log_text:
         server_hash = None
@@ -451,6 +427,24 @@ def send_install(ServerURL, install_data):
             send_report(install_log_submit_url, install_data)
 
 
+def run_external_scripts(runtype):
+    external_scripts_dir = '/usr/local/sal/external_scripts'
+
+    if os.path.exists(external_scripts_dir):
+        for root, dirs, files in os.walk(external_scripts_dir,topdown=False):
+            for script in files:
+                st = os.stat(os.path.join(root, script))
+                mode = st.st_mode
+                if not mode & stat.S_IWOTH:
+                    try:
+                        subprocess.call([os.path.join(root, script),
+                                        runtype,
+                                        stdin=None)
+                    except OSError:
+                        munkicommon.display_debug2("Couldn't run %s") % os.path.join(root, script)
+                else:
+                    munkicommon.display_debug2("%s is not executable or has bad permissions") % os.path.join(root, script)
+
 def send_catalogs(ServerURL, catalog_data):
     hashurl = os.path.join(ServerURL, 'catalog/hash', '')
     catalogsubmiturl = os.path.join(ServerURL, 'catalog/submit', '')
@@ -461,7 +455,7 @@ def send_catalogs(ServerURL, catalog_data):
     catalogs = {}
     for catalog in [os.path.join(catalog_dir, cat) for cat in
                     os.listdir(catalog_dir) if not cat.startswith('.')]:
-        contents, hashed = get_file_and_hash(catalog)
+        contents, hashed = utils.get_file_and_hash(catalog)
         catalogs[catalog] = {'contents': sub_format(contents), 'local_hash':
                              hashed, 'remote_hash': ''}
 
