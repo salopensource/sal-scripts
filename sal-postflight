@@ -144,8 +144,8 @@ def get_plugin_results(plugin_results_plist):
     """
     if os.path.exists(plugin_results_plist):
         try:
-            munkicommon.display_debug2(FoundationPlist.readPlist(plugin_results_plist))
-            return FoundationPlist.readPlist(plugin_results_plist)
+            plist_data = FoundationPlist.readPlist(plugin_results_plist)
+            return plist_data
         except:
             munkicommon.display_debug2('Could not read external data plist.')
     else:
@@ -438,7 +438,7 @@ def run_external_scripts(runtype):
                 if not mode & stat.S_IWOTH:
                     try:
                         subprocess.call([os.path.join(root, script),
-                                        runtype,
+                                        runtype],
                                         stdin=None)
                     except OSError:
                         munkicommon.display_debug2("Couldn't run %s") % os.path.join(root, script)

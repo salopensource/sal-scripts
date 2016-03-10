@@ -86,6 +86,7 @@ def download_scripts(server_scripts):
                 download_required = True
 
         if download_required == True:
+            munkicommon.display_debug2('downloading %s' % server_script['filename'])
             download_and_write_script(server_script)
 
 def download_and_write_script(server_script):
