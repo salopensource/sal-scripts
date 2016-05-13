@@ -206,7 +206,7 @@ def puppet_vers():
     if puppet_path:
         try:
             command = [puppet_path, '--version']
-            puppet_version = subprocess.check_output(command)
+            puppet_version = subprocess.check_output(command).strip()
         except subprocess.CalledProcessError as error:
             munkicommon.display_warning('Issue getting puppet version')
             munkicommon.display_warning(error.message)
