@@ -30,7 +30,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '1.0.0'
+VERSION = '1.0.2'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
