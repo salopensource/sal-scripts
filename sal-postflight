@@ -30,7 +30,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '1.0.3'
+VERSION = '1.0.4'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
@@ -275,7 +275,7 @@ def get_facter_report():
     report = None
     if facter_path:
         try:
-            command = [facter_path, '--puppet', '--yaml']
+            command = [facter_path, '--puppet', '--json']
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
             munkicommon.display_warning('Issue getting facter report:')
@@ -284,10 +284,10 @@ def get_facter_report():
     facter = {}
     if report:
         try:
-            facter = yaml.load(report)
-        except yaml.parser.ParserError:
+            facter = json.loads(report, object_pairs_hook=utils.dict_clean)
+        except:
             pass
-
+            
     munkicommon.display_debug2('Facter Output:')
     munkicommon.display_debug2(pformat(facter))
 

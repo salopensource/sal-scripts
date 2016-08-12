@@ -70,3 +70,11 @@ def get_file_and_hash(path):
             text = ifile.read()
 
     return (text, hashlib.sha256(text).hexdigest())
+
+def dict_clean(items):
+    result = {}
+    for key, value in items:
+        if value is None:
+            value = 'None'
+        result[key] = value
+    return result
