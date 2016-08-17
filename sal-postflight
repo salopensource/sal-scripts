@@ -30,7 +30,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '1.0.4'
+VERSION = '1.0.6'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
@@ -265,7 +265,7 @@ def get_facter_report():
     os.environ['FACTERLIB'] = desired_facter
 
     # if Facter is installed, perform a run
-    facter_paths = ('/opt/puppetlabs/bin/facter', '/usr/bin/facter')
+    facter_paths = ('/opt/puppetlabs/bin/puppet', '/usr/bin/facter')
     facter_path = None
     for path in facter_paths:
         if os.path.exists(path):
@@ -273,9 +273,13 @@ def get_facter_report():
             break
 
     report = None
+    if facter_path == '/opt/puppetlabs/bin/puppet':
+        command = [facter_path, 'facts', '--render-as', 'json']
+    else:
+        command = [facter_path, '--puppet', '--json']
+
     if facter_path:
         try:
-            command = [facter_path, '--puppet', '--json']
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
             munkicommon.display_warning('Issue getting facter report:')
@@ -287,7 +291,8 @@ def get_facter_report():
             facter = json.loads(report, object_pairs_hook=utils.dict_clean)
         except:
             pass
-            
+    if 'values' in facter:
+        facter = facter['values']
     munkicommon.display_debug2('Facter Output:')
     munkicommon.display_debug2(pformat(facter))
 
