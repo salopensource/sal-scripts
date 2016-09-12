@@ -60,7 +60,7 @@ def get_checksum():
     stdout, stderr = utils.curl(preflight_url)
 
     if stderr:
-        munkicommon.display_warning(stderr)
+        munkicommon.display_debug2(stderr)
     stdout_list = stdout.split("\n")
     if "<h1>Page not found</h1>" not in stdout_list:
         munkicommon.display_debug2(stdout)

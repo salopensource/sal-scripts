@@ -30,7 +30,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '1.0.6'
+VERSION = '1.0.7'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
@@ -214,8 +214,8 @@ def puppet_vers():
             command = [puppet_path, '--version']
             puppet_version = subprocess.check_output(command).strip()
         except subprocess.CalledProcessError as error:
-            munkicommon.display_warning('Issue getting puppet version')
-            munkicommon.display_warning(error.message)
+            munkicommon.display_debug2('Issue getting puppet version')
+            munkicommon.display_debug2(error.message)
             puppet_version = "Not Found"
 
     munkicommon.display_debug2('Puppet Version: {}'.format(puppet_version))
@@ -282,8 +282,8 @@ def get_facter_report():
         try:
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
-            munkicommon.display_warning('Issue getting facter report:')
-            munkicommon.display_warning(error.message)
+            munkicommon.display_debug2('Issue getting facter report:')
+            munkicommon.display_debug2(error.message)
 
     facter = {}
     if report:
@@ -373,7 +373,7 @@ def sub_format_plist(plist):
     try:
         data = FoundationPlist.writePlistToString(plist)
     except FoundationPlist.NSPropertyListSerializationException as error:
-        munkicommon.display_warning(
+        munkicommon.display_debug2(
             "Error serializing generated report: {}".format(error.message))
         data = ""
 
@@ -389,7 +389,7 @@ def send_report(url, report):
     encoded_data = urllib.urlencode(report)
     stdout, stderr = utils.curl(url, encoded_data)
     if stderr:
-        munkicommon.display_warning(stderr)
+        munkicommon.display_debug2(stderr)
     stdout_list = stdout.split("\n")
     if "<h1>Page not found</h1>" not in stdout_list:
         munkicommon.display_debug2(stdout)
