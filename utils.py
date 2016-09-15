@@ -37,7 +37,8 @@ def pref(pref_name):
     """
     default_prefs = {
         'ServerURL': 'http://sal',
-        'osquery_launchd': 'com.facebook.osqueryd.plist'
+        'osquery_launchd': 'com.facebook.osqueryd.plist',
+        'SkipFacts': []
     }
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
     if pref_value == None:
@@ -53,9 +54,9 @@ def pref(pref_name):
 
 def curl(url, data=None):
     if data:
-        cmd = ['/usr/bin/curl','--connect-timeout', '10', '--data', data, url]
+        cmd = ['/usr/bin/curl','--max-time','30','--connect-timeout', '10', '--data', data, url]
     else:
-        cmd = ['/usr/bin/curl', '--connect-timeout', '10', url]
+        cmd = ['/usr/bin/curl','--max-time','30', '--connect-timeout', '10', url]
     task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = task.communicate()
     if task.returncode == 0:
@@ -73,8 +74,18 @@ def get_file_and_hash(path):
 
 def dict_clean(items):
     result = {}
+    skip_facts = pref('SkipFacts')
     for key, value in items:
+        skip = False
         if value is None:
             value = 'None'
-        result[key] = value
+
+        for skip_fact in skip_facts:
+            if key.startswith(skip_fact):
+                skip = True
+                break
+
+        if skip == False:
+            result[key] = value
+
     return result
