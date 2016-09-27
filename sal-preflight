@@ -29,13 +29,15 @@ def main():
     if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
         os.makedirs(EXTERNAL_SCRIPTS_DIR)
 
-    server_scripts = get_checksum()
-    if server_scripts:
-        create_dirs(server_scripts)
-        download_scripts(server_scripts)
+    sync_scripts = utils.pref('SyncScripts')
+    if sync_scripts == True:
+        server_scripts = get_checksum()
+        if server_scripts:
+            create_dirs(server_scripts)
+            download_scripts(server_scripts)
 
-    cleanup_old_scripts(server_scripts)
-    remove_empty_folders(EXTERNAL_SCRIPTS_DIR)
+        cleanup_old_scripts(server_scripts)
+        remove_empty_folders(EXTERNAL_SCRIPTS_DIR)
 
 def get_prefs():
     # Check for mandatory prefs and bail if any are missing.

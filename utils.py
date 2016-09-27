@@ -38,7 +38,8 @@ def pref(pref_name):
     default_prefs = {
         'ServerURL': 'http://sal',
         'osquery_launchd': 'com.facebook.osqueryd.plist',
-        'SkipFacts': []
+        'SkipFacts': [],
+        'SyncScripts': True
     }
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
     if pref_value == None:
