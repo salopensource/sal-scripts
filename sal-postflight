@@ -413,7 +413,9 @@ def send_hashed(ServerURL, hashed_data):
     inventory, inventory_hash = utils.get_file_and_hash(inventoryplist)
     if inventory:
         serverhash = None
-        serverhash, _ = utils.curl(hashurl)
+        serverhash, stderr = utils.curl(hashurl)
+        if stderr != None:
+            return
         if serverhash != inventory_hash:
             hashed_data['base64bz2inventory'] = (
                 base64.b64encode(bz2.compress(inventory)))
@@ -435,7 +437,7 @@ def send_install(ServerURL, install_data):
     if install_log_text:
         server_hash = None
         server_hash, stderr = utils.curl(hash_url)
-        if server_hash != install_log_hash or stderr is not None:
+        if server_hash != install_log_hash and stderr is None:
             install_data['base64bz2installlog'] = (
                 base64.b64encode(bz2.compress(install_log_text)))
             munkicommon.display_debug2("Install.log Response:")
@@ -478,29 +480,30 @@ def send_catalogs(ServerURL, catalog_data):
 
     hash_submission = copy.copy(catalog_data)
     hash_submission['catalogs'] = sub_format(catalog_check_plist)
-    response, _ = send_report(hashurl, hash_submission)
+    response, stderr = send_report(hashurl, hash_submission)
 
     # Add remote_hashes to data structure.
     try:
         remote_data = FoundationPlist.readPlistFromString(response)
     except FoundationPlist.NSPropertyListSerializationException:
         remote_data = {}
+    if stderr != None:
+        for catalog in check_list:
+            send = True
+            for remote_item in remote_data:
+                if catalog['name'] == remote_item['name']:
+                    if catalog['sha256hash'] == remote_item['sha256hash']:
 
-    for catalog in check_list:
-        send = True
-        for remote_item in remote_data:
-            if catalog['name'] == remote_item['name']:
-                if catalog['sha256hash'] == remote_item['sha256hash']:
-                    send = False
-        if send == True:
-            contents, _ = utils.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
-            catalog_data['base64bz2catalog'] = sub_format(contents)
-            catalog_data['name'] = catalog['name']
-            catalog_data['sha256hash'] = catalog['sha256hash']
+                        send = False
+            if send == True:
+                contents, _ = utils.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
+                catalog_data['base64bz2catalog'] = sub_format(contents)
+                catalog_data['name'] = catalog['name']
+                catalog_data['sha256hash'] = catalog['sha256hash']
 
-            munkicommon.display_debug2(
-                "Submitting Catalog: {}".format(catalog['name']))
-            send_report(catalogsubmiturl, catalog_data)
+                munkicommon.display_debug2(
+                    "Submitting Catalog: {}".format(catalog['name']))
+                send_report(catalogsubmiturl, catalog_data)
 
 
 if __name__ == '__main__':
