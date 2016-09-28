@@ -55,9 +55,9 @@ def pref(pref_name):
 
 def curl(url, data=None):
     if data:
-        cmd = ['/usr/bin/curl','--max-time','10','--connect-timeout', '10', '--data', data, url]
+        cmd = ['/usr/bin/curl','--max-time','8', '--connect-timeout', '2', '--data', data, url]
     else:
-        cmd = ['/usr/bin/curl','--max-time','10', '--connect-timeout', '10', url]
+        cmd = ['/usr/bin/curl','--max-time','4', '--connect-timeout', '2', url]
     task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = task.communicate()
     if task.returncode == 0:
