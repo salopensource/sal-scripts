@@ -50,12 +50,13 @@ def main():
                  'mode.')
     report['MachineInfo']['SystemProfile'] = get_sys_profile()
     puppet_version = puppet_vers()
-    if puppet_version != "" and puppet_version != None:
+    if puppet_version != "" and puppet_version is not None:
         report['Puppet_Version'] = puppet_version
     puppet_report = get_puppet_report()
     if puppet_report != {}:
         report['Puppet'] = puppet_report
-    report['Plugin_Results'] = get_plugin_results('/usr/local/sal/plugin_results.plist')
+    report['Plugin_Results'] = get_plugin_results(
+        '/usr/local/sal/plugin_results.plist')
     report['Ohai'] = get_ohai_report()
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
@@ -70,7 +71,8 @@ def main():
     # wasting bandwidth by sending unrelated data. (Alternately, we
     # could `del submission[some_key]`).
     send_checkin(ServerURL, copy.copy(submission), report)
-    # Only perform these when a user isn't running MSC manually to speed up the run
+    # Only perform these when a user isn't running MSC manually to speed up the
+    # run
     if runtype != 'manual':
         send_hashed(ServerURL, copy.copy(submission))
         send_install(ServerURL, copy.copy(submission))
@@ -148,6 +150,7 @@ def get_managed_install_report():
 
     return munki_report
 
+
 def get_plugin_results(plugin_results_plist):
     """ Read external data plist if it exists and return a dict
     """
@@ -162,6 +165,7 @@ def get_plugin_results(plugin_results_plist):
     else:
         munkicommon.display_debug2('No external data plist found.')
         return {}
+
 
 def format_plist(plist):
     """Format a plist as a string for debug output."""
@@ -281,7 +285,7 @@ def get_ohai_report():
 def nullify(ohai):
     # Temp fix while we we wait for Chef to approve Ohai PR.
     for key in ohai:
-        if ohai[key] == None:
+        if ohai[key] is None:
             ohai[key] = "null"
 
 
@@ -344,7 +348,8 @@ def hashrocket_flatten_dict(input_dict):
         if type(fact_value) == dict:
             # Need to recurse at this point
             # pylint: disable=line-too-long
-            for new_key, new_value in hashrocket_flatten_dict(fact_value).items():
+            for new_key, new_value in hashrocket_flatten_dict(
+                    fact_value).items():
                 result_dict['=>'.join([fact_name, new_key])] = new_value
         else:
             result_dict[fact_name] = fact_value
@@ -359,7 +364,8 @@ def get_machine_name(net_config, nametype):
         return sys_info.get(nametype, None)
     else:
         command = ['/usr/sbin/scutil', '--get', 'ComputerName']
-        task = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        task = subprocess.Popen(command, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
         (stdout, stderr) = task.communicate()
         name = stdout
         return name
@@ -376,11 +382,13 @@ def get_data(serial, bu_key, name, run_uuid):
     data['run_uuid'] = run_uuid
     return data
 
+
 def get_runtype():
     if len(sys.argv) > 1:
         return sys.argv[1]
     else:
         return 'custom'
+
 
 def get_disk_size(path='/'):
     """Returns total disk size in KBytes.
@@ -447,13 +455,14 @@ def send_hashed(ServerURL, hashed_data):
     if inventory:
         serverhash = None
         serverhash, stderr = utils.curl(hashurl)
-        if stderr != None:
+        if stderr is not None:
             return
         if serverhash != inventory_hash:
             hashed_data['base64bz2inventory'] = (
                 base64.b64encode(bz2.compress(inventory)))
             munkicommon.display_debug2("Hashed Report Response:")
             send_report(inventorysubmiturl, hashed_data)
+
 
 def send_install(ServerURL, install_data):
     hash_url = os.path.join(
@@ -481,7 +490,7 @@ def run_external_scripts(runtype):
     external_scripts_dir = '/usr/local/sal/external_scripts'
 
     if os.path.exists(external_scripts_dir):
-        for root, dirs, files in os.walk(external_scripts_dir,topdown=False):
+        for root, dirs, files in os.walk(external_scripts_dir, topdown=False):
             for script in files:
                 st = os.stat(os.path.join(root, script))
                 mode = st.st_mode
@@ -491,9 +500,12 @@ def run_external_scripts(runtype):
                                         runtype],
                                         stdin=None)
                     except OSError:
-                        munkicommon.display_debug2("Couldn't run %s") % os.path.join(root, script)
+                        munkicommon.display_debug2(
+                            "Couldn't run %s") % os.path.join(root, script)
                 else:
-                    munkicommon.display_debug2("%s is not executable or has bad permissions") % os.path.join(root, script)
+                    munkicommon.display_debug2(
+                        "%s is not executable or has bad permissions") % os.path.join(root, script)
+
 
 def send_catalogs(ServerURL, catalog_data):
     hashurl = os.path.join(ServerURL, 'catalog/hash', '')
@@ -507,7 +519,7 @@ def send_catalogs(ServerURL, catalog_data):
             # don't operate on hidden files (.DS_Store etc)
             if not file.startswith('.'):
                 _, catalog_hash = utils.get_file_and_hash(file)
-                check_list.append({'name': file, 'sha256hash':catalog_hash})
+                check_list.append({'name': file, 'sha256hash': catalog_hash})
 
         catalog_check_plist = FoundationPlist.writePlistToString(check_list)
 
@@ -520,7 +532,7 @@ def send_catalogs(ServerURL, catalog_data):
         remote_data = FoundationPlist.readPlistFromString(response)
     except FoundationPlist.NSPropertyListSerializationException:
         remote_data = {}
-    if stderr != None:
+    if stderr is not None:
         for catalog in check_list:
             send = True
             for remote_item in remote_data:
@@ -528,8 +540,9 @@ def send_catalogs(ServerURL, catalog_data):
                     if catalog['sha256hash'] == remote_item['sha256hash']:
 
                         send = False
-            if send == True:
-                contents, _ = utils.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
+            if send is True:
+                contents, _ = utils.get_file_and_hash(os.path.join(
+                    catalog_dir, catalog['name']))
                 catalog_data['base64bz2catalog'] = sub_format(contents)
                 catalog_data['name'] = catalog['name']
                 catalog_data['sha256hash'] = catalog['sha256hash']
