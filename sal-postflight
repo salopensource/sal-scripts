@@ -30,7 +30,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '1.0.7'
+VERSION = '1.0.8'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
@@ -56,6 +56,7 @@ def main():
     if puppet_report != {}:
         report['Puppet'] = puppet_report
     report['Plugin_Results'] = get_plugin_results('/usr/local/sal/plugin_results.plist')
+    report['Ohai'] = get_ohai_report()
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
 
@@ -251,6 +252,38 @@ def get_puppet_report():
         munkicommon.display_debug2(pformat(puppetreport))
 
     return puppetreport
+
+
+def get_ohai_report():
+    report = None
+    ohai_path = '/usr/local/bin/ohai'
+    if os.path.exists(ohai_path):
+        command = ohai_path
+        try:
+            report = subprocess.check_output(command)
+        except subprocess.CalledProcessError as error:
+            munkicommon.display_debug2('Issue getting ohai report:')
+            munkicommon.display_debug2(error.message)
+
+    ohai = {}
+    if report:
+        try:
+            ohai = json.loads(report)
+            nullify(ohai)
+        except:
+            pass
+    munkicommon.display_debug2('Ohai Output:')
+    munkicommon.display_debug2(pformat(ohai))
+
+    return hashrocket_flatten_dict(ohai)
+
+
+def nullify(ohai):
+    # Temp fix while we we wait for Chef to approve Ohai PR.
+    for key in ohai:
+        if ohai[key] == None:
+            ohai[key] = "null"
+
 
 def get_facter_report():
     """Check for facter and sal-specific custom facts"""
