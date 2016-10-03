@@ -273,6 +273,12 @@ def get_ohai_report():
     if report:
         try:
             ohai = json.loads(report)
+            try:
+                ohai_prefs = utils.pref('excluded_ohai_attributes')
+            except:
+                pass
+            for x in ohai_prefs:
+                del ohai[x]
             nullify(ohai)
         except:
             pass
