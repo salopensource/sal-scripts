@@ -262,7 +262,7 @@ def get_ohai_report():
     report = None
     ohai_path = '/usr/local/bin/ohai'
     if os.path.exists(ohai_path):
-        command = ohai_path
+        command = [ohai_path, '-L', '/usr/local/sal/ohaiwarnings.log']
         try:
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
