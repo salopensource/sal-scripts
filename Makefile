@@ -25,5 +25,5 @@ l_munki: l_usr_local
 pack-sal-submit: l_munki
 	@sudo ${INSTALL} -m 755 -g wheel -o root "postflight" ${WORK_D}/usr/local/munki
 	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight" ${WORK_D}/usr/local/munki
-	@sudo ${INSTALL} -m 755 -g wheel -o root "sal-postflight" ${WORK_D}/usr/local/munki/postflight.d
-	@sudo ${INSTALL} -m 755 -g wheel -o root "sal-preflight" ${WORK_D}/usr/local/munki/preflight.d
+	@sudo ${INSTALL} -m 755 -g wheel -o root "postflight.d/sal-postflight" ${WORK_D}/usr/local/munki/postflight.d
+	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight.d/sal-preflight" ${WORK_D}/usr/local/munki/preflight.d

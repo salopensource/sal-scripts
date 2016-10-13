@@ -57,7 +57,7 @@ def main():
         report['Puppet'] = puppet_report
     report['Plugin_Results'] = get_plugin_results(
         '/usr/local/sal/plugin_results.plist')
-    report['Ohai'] = get_ohai_report()
+    # report['Ohai'] = get_ohai_report()
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
 
