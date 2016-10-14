@@ -39,7 +39,8 @@ def pref(pref_name):
         'ServerURL': 'http://sal',
         'osquery_launchd': 'com.facebook.osqueryd.plist',
         'SkipFacts': [],
-        'SyncScripts': True
+        'SyncScripts': True,
+        'BasicAuth': True,
     }
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
     if pref_value == None:
@@ -54,10 +55,19 @@ def pref(pref_name):
     return pref_value
 
 def curl(url, data=None):
+    cmd = ['/usr/bin/curl']
+    basic_auth = pref('BasicAuth')
+
+    if basic_auth is True:
+        key = pref('key')
+        user_pass = 'sal:%s' % key
+        cmd = cmd + ['--user', user_pass]
+
     if data:
-        cmd = ['/usr/bin/curl','--max-time','8', '--connect-timeout', '2', '--data', data, url]
+        cmd = cmd + ['--max-time','8', '--connect-timeout', '2', '--data', data, url]
     else:
-        cmd = ['/usr/bin/curl','--max-time','4', '--connect-timeout', '2', url]
+        cmd = cmd + ['--max-time','4', '--connect-timeout', '2', url]
+
     task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = task.communicate()
     if task.returncode == 0:
