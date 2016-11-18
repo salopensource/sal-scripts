@@ -260,7 +260,7 @@ def get_puppet_report():
 
 def get_ohai_report():
     report = None
-    ohai_path = '/usr/local/bin/ohai'
+    ohai_path = '/opt/chef/bin/ohai'
     if os.path.exists(ohai_path):
         command = [ohai_path, '-L', '/usr/local/sal/ohaiwarnings.log']
         try:
