@@ -58,7 +58,7 @@ def curl(url, data=None):
     cmd = ['/usr/bin/curl']
     basic_auth = pref('BasicAuth')
 
-    if basic_auth is True:
+    if basic_auth True:
         key = pref('key')
         user_pass = 'sal:%s' % key
         cmd = cmd + ['--user', user_pass]
