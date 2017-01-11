@@ -41,7 +41,6 @@ def main():
     set_verbosity()
     exit_if_not_root()
     runtype = get_runtype()
-    run_external_scripts(runtype)
     report = get_managed_install_report()
     serial = report['MachineInfo'].get('serial_number')
     if not serial:
@@ -55,8 +54,14 @@ def main():
     puppet_report = get_puppet_report()
     if puppet_report != {}:
         report['Puppet'] = puppet_report
-    report['Plugin_Results'] = get_plugin_results(
-        '/usr/local/sal/plugin_results.plist')
+    plugin_results_path = '/usr/local/sal/plugin_results.plist'
+    try:
+        run_external_scripts(runtype)
+        report['Plugin_Results'] = get_plugin_results(plugin_results_path)
+    finally:
+        if os.path.exists(plugin_results_path):
+            os.remove(plugin_results_path)
+
     # report['Ohai'] = get_ohai_report()
     report['Facter'] = get_facter_report()
     report['os_family'] = 'Darwin'
@@ -77,9 +82,6 @@ def main():
         send_hashed(ServerURL, copy.copy(submission))
         send_install(ServerURL, copy.copy(submission))
         send_catalogs(ServerURL, copy.copy(submission))
-
-    if os.path.exists('/usr/local/sal/plugin_results.plist'):
-        os.remove('/usr/local/sal/plugin_results.plist')
 
 
 def set_verbosity():
@@ -152,19 +154,20 @@ def get_managed_install_report():
 
 
 def get_plugin_results(plugin_results_plist):
-    """ Read external data plist if it exists and return a dict
-    """
+    """ Read external data plist if it exists and return a dict."""
+    result = {}
     if os.path.exists(plugin_results_plist):
         try:
             plist_data = FoundationPlist.readPlist(plugin_results_plist)
             munkicommon.display_debug2('External data plist:')
             munkicommon.display_debug2(format_plist(plist_data))
-            return plist_data
-        except:
+            result = plist_data
+        except FoundationPlist.NSPropertyListSerializationException:
             munkicommon.display_debug2('Could not read external data plist.')
     else:
         munkicommon.display_debug2('No external data plist found.')
-        return {}
+
+    return result
 
 
 def format_plist(plist):
