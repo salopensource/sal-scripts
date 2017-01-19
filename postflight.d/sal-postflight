@@ -138,9 +138,18 @@ def get_managed_install_report():
         ManagedInstalls report for last Munki run as a plist
         dict, or an empty dict.
     """
+    # Checks munki preferences to see where the install directory is set to.
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+
+    # set the paths based on munki's configuration.
+    managed_install_report = os.path.join(
+        managed_install_dir, 'ManagedInstallReport.plist')
+
+    munkicommon.display_debug2(
+        "Looking for munki's ManagedInstallReport.plist at {} ...".format(
+            managed_install_report))
     try:
-        munki_report = FoundationPlist.readPlist(
-            '/Library/Managed Installs/ManagedInstallReport.plist')
+        munki_report = FoundationPlist.readPlist(managed_install_report)
     except FoundationPlist.FoundationPlistException:
         munki_report = {}
 
@@ -457,9 +466,11 @@ def send_hashed(ServerURL, hashed_data):
     hashurl = os.path.join(
         ServerURL, 'inventory/hash', hashed_data['serial'], '')
     inventorysubmiturl = os.path.join(ServerURL, 'inventory/submit', '')
-
-    inventoryplist = '/Library/Managed Installs/ApplicationInventory.plist'
-
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    inventoryplist = os.path.join(
+        managed_install_dir, 'ApplicationInventory.plist')
+    munkicommon.display_debug2(
+        'ApplicationInventory.plist Path: {}'.format(inventoryplist))
     inventory, inventory_hash = utils.get_file_and_hash(inventoryplist)
     if inventory:
         serverhash = None
@@ -512,8 +523,10 @@ def run_external_scripts(runtype):
                         munkicommon.display_debug2(
                             "Couldn't run %s") % os.path.join(root, script)
                 else:
-                    munkicommon.display_debug2(
-                        "%s is not executable or has bad permissions") % os.path.join(root, script)
+                    script_path = os.path.join(root, script)
+                    munkicommon.display_debug1(
+                        "{0} is not executable or has bad permissions..".format(
+                            script_path))
 
 
 def send_catalogs(ServerURL, catalog_data):
