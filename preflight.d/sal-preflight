@@ -26,11 +26,10 @@ def main():
     if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
         os.remove('/private/var/osquery/sal_packs/sal.conf')
 
-    if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
-        os.makedirs(EXTERNAL_SCRIPTS_DIR)
-
     sync_scripts = utils.pref('SyncScripts')
     if sync_scripts == True:
+        if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
+            os.makedirs(EXTERNAL_SCRIPTS_DIR)
         server_scripts = get_checksum()
         if server_scripts:
             create_dirs(server_scripts)
