@@ -218,7 +218,8 @@ def puppet_vers():
     """Return puppet version as a string or None if not installed."""
     puppet_paths = (
         '/opt/puppetlabs/bin/puppet',
-        '/usr/bin/puppet')
+        '/usr/bin/puppet',
+        '/usr/local/bin/puppet')
     puppet_path = None
     for path in puppet_paths:
         if os.path.exists(path):
@@ -320,7 +321,7 @@ def get_facter_report():
     os.environ['FACTERLIB'] = desired_facter
 
     # if Facter is installed, perform a run
-    facter_paths = ('/opt/puppetlabs/bin/puppet', '/usr/bin/facter')
+    facter_paths = ('/opt/puppetlabs/bin/puppet', '/usr/bin/facter', '/usr/local/bin/facter')
     facter_path = None
     for path in facter_paths:
         if os.path.exists(path):
