@@ -523,7 +523,7 @@ def run_external_scripts(runtype):
                         munkicommon.display_debug2(
                             "Couldn't run {}".format(script_path))
                 else:
-                    msg = "{} is not executable or has bad permissions.."
+                    msg = "'{}' is not executable! Skipping."
                     munkicommon.display_debug1(msg.format(script_path))
 
 
