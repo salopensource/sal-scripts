@@ -22,8 +22,7 @@ import stat
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
 sys.path.append('/usr/local/munki')
-from munkilib import FoundationPlist
-from munkilib import munkicommon
+from munkilib import FoundationPlist, munkicommon
 sys.path.append('/usr/local/sal')
 import utils
 import yaml
