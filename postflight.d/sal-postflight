@@ -512,21 +512,20 @@ def run_external_scripts(runtype):
     if os.path.exists(external_scripts_dir):
         for root, dirs, files in os.walk(external_scripts_dir, topdown=False):
             for script in files:
-                st = os.stat(os.path.join(root, script))
-                mode = st.st_mode
-                if not mode & stat.S_IWOTH:
+                script_path = os.path.join(root, script)
+
+                st = os.stat(script_path)
+                executable = st.st_mode & stat.S_IXUSR
+                if executable:
                     try:
-                        subprocess.call([os.path.join(root, script),
-                                        runtype],
-                                        stdin=None)
+                        subprocess.call(
+                            [script_path, runtype], stdin=None)
                     except OSError:
                         munkicommon.display_debug2(
-                            "Couldn't run %s") % os.path.join(root, script)
+                            "Couldn't run {}".format(script_path))
                 else:
-                    script_path = os.path.join(root, script)
-                    munkicommon.display_debug1(
-                        "{0} is not executable or has bad permissions..".format(
-                            script_path))
+                    msg = "{} is not executable or has bad permissions.."
+                    munkicommon.display_debug1(msg.format(script_path))
 
 
 def send_catalogs(ServerURL, catalog_data):
