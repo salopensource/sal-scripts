@@ -193,7 +193,7 @@ def get_sys_profile():
     """
     # Generate system profiler report for networking and hardware.
     system_profile = {}
-    command = ['system_profiler', '-xml', 'SPNetworkDataType',
+    command = ['/usr/sbin/system_profiler', '-xml', 'SPNetworkDataType',
                'SPHardwareDataType']
     try:
         stdout = subprocess.check_output(command)
