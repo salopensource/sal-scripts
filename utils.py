@@ -1,17 +1,26 @@
 #!/usr/bin/python
-import tempfile
-from Foundation import *
-import os
-import sys
-import subprocess
+
+
 import hashlib
+import os
+import subprocess
+import sys
+import tempfile
+
+
+from Foundation import *
+
 
 BUNDLE_ID = 'com.github.salopensource.sal'
+
+
 class GurlError(Exception):
     pass
 
+
 class HTTPError(Exception):
     pass
+
 
 def set_pref(pref_name, pref_value):
     """Sets a preference, writing it to
@@ -26,6 +35,7 @@ def set_pref(pref_name, pref_value):
         CFPreferencesAppSynchronize(BUNDLE_ID)
     except Exception:
         pass
+
 
 def pref(pref_name):
     """Return a preference. Since this uses CFPreferencesCopyAppValue,
@@ -54,6 +64,7 @@ def pref(pref_name):
         pref_value = str(pref_value)
     return pref_value
 
+
 def curl(url, data=None):
     cmd = ['/usr/bin/curl']
     basic_auth = pref('BasicAuth')
@@ -74,6 +85,7 @@ def curl(url, data=None):
         stderr = None
     return stdout, stderr
 
+
 def get_file_and_hash(path):
     """Given a filepath, return a tuple of (file contents, sha256."""
     text = ""
@@ -82,6 +94,7 @@ def get_file_and_hash(path):
             text = ifile.read()
 
     return (text, hashlib.sha256(text).hexdigest())
+
 
 def dict_clean(items):
     result = {}
