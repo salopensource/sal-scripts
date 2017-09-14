@@ -59,7 +59,7 @@ def pref(pref_name):
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value == None:
+    if pref_value == None and pref_name in default_prefs:
         pref_value = default_prefs.get(pref_name)
         # we're using a default value. We'll write it out to
         # /Library/Preferences/<BUNDLE_ID>.plist for admin
@@ -77,6 +77,15 @@ def curl(url, data=None):
     cmd = [
         '/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
 
+    # Use a PEM format certificate file to verify the peer. This is
+    # useful primarily to support self-signed certificates, which are
+    # rejected on 10.13's bundled curl. In cases where you have a cert
+    # signed by an internal or external trusted CA, curl will happily
+    # use the keychain.
+    ca_cert = pref('CACert')
+    if ca_cert:
+        cmd += ['--cacert', ca_cert]
+
     basic_auth = pref('BasicAuth')
     if basic_auth:
         key = pref('key')
@@ -91,7 +100,6 @@ def curl(url, data=None):
 
     cmd += [url]
 
-    import pdb; pdb.set_trace()
     task = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = task.communicate()
