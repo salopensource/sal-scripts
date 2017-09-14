@@ -1,35 +1,50 @@
 #!/usr/bin/python
-import tempfile
-from Foundation import *
-import os
-import sys
-import subprocess
+
+
 import hashlib
+import os
+import subprocess
+import sys
+import tempfile
+
+
+from Foundation import *
+
 
 BUNDLE_ID = 'com.github.salopensource.sal'
+
+
 class GurlError(Exception):
     pass
+
 
 class HTTPError(Exception):
     pass
 
+
 def set_pref(pref_name, pref_value):
-    """Sets a preference, writing it to
-        /Library/Preferences/com.salopensource.sal.plist.
-        This should normally be used only for 'bookkeeping' values;
-        values that control the behavior of munki may be overridden
-        elsewhere (by MCX, for example)"""
+    """Sets a Sal preference.
+
+    The preference file on disk is located at
+    /Library/Preferences/com.salopensource.sal.plist.  This should
+    normally be used only for 'bookkeeping' values; values that control
+    the behavior of munki may be overridden elsewhere (by MCX, for
+    example)"""
     try:
         CFPreferencesSetValue(
-                              pref_name, pref_value, BUNDLE_ID,
-                              kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
+            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser,
+            kCFPreferencesCurrentHost)
         CFPreferencesAppSynchronize(BUNDLE_ID)
+
     except Exception:
         pass
 
+
 def pref(pref_name):
-    """Return a preference. Since this uses CFPreferencesCopyAppValue,
-    Preferences can be defined several places. Precedence is:
+    """Return a preference value.
+
+    Since this uses CFPreferencesCopyAppValue, Preferences can be defined
+    several places. Precedence is:
         - MCX
         - /var/root/Library/Preferences/com.salopensource.sal.plist
         - /Library/Preferences/com.salopensource.sal.plist
@@ -42,46 +57,64 @@ def pref(pref_name):
         'SyncScripts': True,
         'BasicAuth': True,
     }
+
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value == None:
+    if pref_value == None and pref_name in default_prefs:
         pref_value = default_prefs.get(pref_name)
         # we're using a default value. We'll write it out to
         # /Library/Preferences/<BUNDLE_ID>.plist for admin
         # discoverability
         set_pref(pref_name, pref_value)
+
     if isinstance(pref_value, NSDate):
         # convert NSDate/CFDates to strings
         pref_value = str(pref_value)
+
     return pref_value
 
-def curl(url, data=None):
-    cmd = ['/usr/bin/curl']
-    basic_auth = pref('BasicAuth')
 
+def curl(url, data=None):
+    cmd = [
+        '/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
+
+    # Use a PEM format certificate file to verify the peer. This is
+    # useful primarily to support self-signed certificates, which are
+    # rejected on 10.13's bundled curl. In cases where you have a cert
+    # signed by an internal or external trusted CA, curl will happily
+    # use the keychain.
+    ca_cert = pref('CACert')
+    if ca_cert:
+        cmd += ['--cacert', ca_cert]
+
+    basic_auth = pref('BasicAuth')
     if basic_auth:
         key = pref('key')
         user_pass = 'sal:%s' % key
-        cmd = cmd + ['--user', user_pass]
+        cmd += ['--user', user_pass]
+
+    max_time = '8' if data else '4'
+    cmd += ['--max-time', max_time]
 
     if data:
-        cmd = cmd + ['--max-time','8', '--connect-timeout', '2', '--data', data, url]
-    else:
-        cmd = cmd + ['--max-time','4', '--connect-timeout', '2', url]
+        cmd += ['--data', data]
 
-    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd += [url]
+
+    task = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = task.communicate()
-    if task.returncode == 0:
-        stderr = None
     return stdout, stderr
+
 
 def get_file_and_hash(path):
     """Given a filepath, return a tuple of (file contents, sha256."""
-    text = ""
+    text = ''
     if os.path.isfile(path):
         with open(path) as ifile:
             text = ifile.read()
 
     return (text, hashlib.sha256(text).hexdigest())
+
 
 def dict_clean(items):
     result = {}
