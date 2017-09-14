@@ -475,7 +475,7 @@ def send_hashed(ServerURL, hashed_data):
     if inventory:
         serverhash = None
         serverhash, stderr = utils.curl(hashurl)
-        if stderr is not None:
+        if stderr:
             return
         if serverhash != inventory_hash:
             hashed_data['base64bz2inventory'] = (
@@ -499,7 +499,7 @@ def send_install(ServerURL, install_data):
     if install_log_text:
         server_hash = None
         server_hash, stderr = utils.curl(hash_url)
-        if server_hash != install_log_hash and stderr is None:
+        if server_hash != install_log_hash and not stderr:
             install_data['base64bz2installlog'] = (
                 base64.b64encode(bz2.compress(install_log_text)))
             munkicommon.display_debug2("Install.log Response:")
