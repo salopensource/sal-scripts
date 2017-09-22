@@ -71,7 +71,7 @@ def main():
     if utils.pref('GetGrains'):
         grains = get_grain_report(insert_name)
         report['Facter'].update(grains)
-        insert_name = True  #set encase ohai is needed as well
+        insert_name = True  #set in case ohai is needed as well
     # if utils.pref('GetOhai'):
     #     ohais = get_ohai_report(insert_name)
     #     report['Facter'].update(ohais)
