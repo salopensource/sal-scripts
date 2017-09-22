@@ -376,7 +376,7 @@ def get_grain_report(insert_name):
     salt_path = '/opt/salt/bin/salt-call'
     # if salt doesn't exist we can just return an empty dict
     if not os.path.exists(salt_path):
-        display_debug2('Set to get Salt Grains but Salt isn\'t installed...')
+        munkicommon.display_debug2('Set to get Salt Grains but Salt isn\'t installed...')
         return dict()
     command = [salt_path, '--local', '--grains', '--out=json']
     try:
