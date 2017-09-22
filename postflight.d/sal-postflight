@@ -298,8 +298,6 @@ def get_ohai_report(insert_name):
     if report:
         try:
             ohai = json.loads(report)
-            for x in ignored_items:
-                del ohai[x]
             nullify(ohai)
         except:
             pass
