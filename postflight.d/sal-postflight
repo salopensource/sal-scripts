@@ -61,8 +61,21 @@ def main():
         if os.path.exists(plugin_results_path):
             os.remove(plugin_results_path)
 
-    # report['Ohai'] = get_ohai_report()
+    insert_name = False
+
     report['Facter'] = get_facter_report()
+
+    if report['Facter']:
+        insert_name = True
+
+    if utils.pref('GetGrains'):
+        grains = get_grain_report(insert_name)
+        report['Facter'].update(grains)
+        insert_name = True  #set in case ohai is needed as well
+    # if utils.pref('GetOhai'):
+    #     ohais = get_ohai_report(insert_name)
+    #     report['Facter'].update(ohais)
+
     report['os_family'] = 'Darwin'
 
     ServerURL, NameType, bu_key = get_server_prefs()
@@ -356,6 +369,38 @@ def get_facter_report():
         os.environ['FACTERLIB'] = current_facterlib
 
     return hashrocket_flatten_dict(facter)
+
+
+def get_grain_report(insert_name):
+    '''Get the grain report from salt-call'''
+    salt_path = '/opt/salt/bin/salt-call'
+    # if salt doesn't exist we can just return an empty dict
+    if not os.path.exists(salt_path):
+        munkicommon.display_debug2('Set to get Salt Grains but Salt isn\'t installed...')
+        return dict()
+    command = [salt_path, '--local', '--grains', '--out=json']
+    try:
+        grains_report = subprocess.check_output(command)
+    except subprocess.CalledProcessError as error:
+        munkicommon.display_debug2('Issue getting grain report...')
+        munkicommon.display_debug2(error.message)
+    grains = dict()
+    new_grains = dict()
+    if grains_report:
+        try:
+            grains = json.loads(grains_report, object_pairs_hook=utils.dict_clean)
+        except:
+            pass
+    if 'local' in grains:
+        grains = grains['local']
+    for key, value in grains.items():
+        if 'productname' in key:
+            # productname value has a weird format that breaks sal if sent.
+            continue
+        if insert_name:
+            key = '{0}=>{1}'.format('grain',key)
+        new_grains[key] = value
+    return hashrocket_flatten_dict(new_grains)
 
 
 def hashrocket_flatten_dict(input_dict):
