@@ -72,9 +72,9 @@ def main():
         grains = get_grain_report(insert_name)
         report['Facter'].update(grains)
         insert_name = True  #set in case ohai is needed as well
-    # if utils.pref('GetOhai'):
-    #     ohais = get_ohai_report(insert_name)
-    #     report['Facter'].update(ohais)
+    if utils.pref('GetOhai'):
+        ohais = get_ohai_report(insert_name)
+        report['Facter'].update(ohais)
 
     report['os_family'] = 'Darwin'
 
@@ -283,41 +283,42 @@ def get_puppet_report():
     return puppetreport
 
 
-def get_ohai_report():
+def get_ohai_report(insert_name):
     report = None
     ohai_path = '/opt/chef/bin/ohai'
+    ohai = dict()
+    new_ohai = dict()
     if os.path.exists(ohai_path):
-        command = [ohai_path, '-L', '/usr/local/sal/ohaiwarnings.log']
+        command = ['/opt/chef/bin/ohai']
         try:
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
             munkicommon.display_debug2('Issue getting ohai report:')
             munkicommon.display_debug2(error.message)
-
-    ohai = {}
     if report:
         try:
             ohai = json.loads(report)
-            try:
-                ohai_prefs = utils.pref('excluded_ohai_attributes')
-            except:
-                pass
-            for x in ohai_prefs:
+            for x in ignored_items:
                 del ohai[x]
             nullify(ohai)
         except:
             pass
+    if ohai:
+        for key, value in ohai.items():
+            if insert_name:
+                key = '{0}=>{1}'.format('ohai', key)
+            new_ohai[key] = value
     munkicommon.display_debug2('Ohai Output:')
     munkicommon.display_debug2(pformat(ohai))
 
-    return hashrocket_flatten_dict(ohai)
+    return hashrocket_flatten_dict(new_ohai)
 
 
 def nullify(ohai):
-    # Temp fix while we we wait for Chef to approve Ohai PR.
+    # Ohai still returns None values. Doubtful it will be fixed.
     for key in ohai:
         if ohai[key] is None:
-            ohai[key] = "null"
+            ohai[key] = ''
 
 
 def get_facter_report():
