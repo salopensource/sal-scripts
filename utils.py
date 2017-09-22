@@ -6,9 +6,12 @@ import os
 import subprocess
 import sys
 import tempfile
-
-
-from Foundation import *
+from Foundation import kCFPreferencesAnyUser, \
+                       kCFPreferencesCurrentHost, \
+                       CFPreferencesSetValue, \
+                       CFPreferencesAppSynchronize, \
+                       CFPreferencesCopyAppValue, \
+                       NSDate, NSArray
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
@@ -56,6 +59,8 @@ def pref(pref_name):
         'SkipFacts': [],
         'SyncScripts': True,
         'BasicAuth': True,
+        'GetGrains': False,
+        'GetOhai': False,
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
