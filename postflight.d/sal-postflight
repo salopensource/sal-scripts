@@ -297,8 +297,7 @@ def get_ohai_report(insert_name):
             munkicommon.display_debug2(error.message)
     if report:
         try:
-            ohai = json.loads(report)
-            nullify(ohai)
+            ohai = json.loads(report, object_pairs_hook=utils.dict_clean)
         except:
             pass
     if ohai:
@@ -310,13 +309,6 @@ def get_ohai_report(insert_name):
     munkicommon.display_debug2(pformat(ohai))
 
     return hashrocket_flatten_dict(new_ohai)
-
-
-def nullify(ohai):
-    # Ohai still returns None values. Doubtful it will be fixed.
-    for key in ohai:
-        if ohai[key] is None:
-            ohai[key] = ''
 
 
 def get_facter_report():
