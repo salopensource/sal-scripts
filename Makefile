@@ -1,6 +1,6 @@
 USE_PKGBUILD=1
 include /usr/local/share/luggage/luggage.make
-PACKAGE_VERSION=2.0.5
+PACKAGE_VERSION:=$(shell sed -n -e '/^VERSION/p' postflight.d/sal-postflight | cut -d "'" -f 2)
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
 REVERSE_DOMAIN=com.github.salopensource
