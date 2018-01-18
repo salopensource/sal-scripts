@@ -12,7 +12,10 @@ import (
 )
 
 func serialNumber() string {
-    out, _ := exec.Command("/usr/sbin/ioreg", "-l").Output() // err ignored for brevity
+    out, err := exec.Command("/usr/sbin/ioreg", "-l").Output()
+    if err != nil {
+        return ""
+    }
     for _, l := range strings.Split(string(out), "\n") {
         if strings.Contains(l, "IOPlatformSerialNumber") {
             s := strings.Split(l, " ")
@@ -26,6 +29,9 @@ func serialNumber() string {
 
 func main() {
     serial_number:= serialNumber()
+    if serial_number == "" {
+        panic("Could not retrieve serial number")
+    }
     sal_url := cfpref.CopyAppValue("ServerURL", "com.github.salopensource.sal")
     key := cfpref.CopyAppValue("key", "com.github.salopensource.sal")
 
@@ -45,9 +51,9 @@ func main() {
     v.Set("serial", serial_number)
 
     req, err := http.NewRequest("POST", the_url, strings.NewReader(v.Encode()))
-       if err != nil {
-            panic(fmt.Errorf("failed to create request: %s", err))
-        }
+    if err != nil {
+        panic(fmt.Errorf("failed to create request: %s", err))
+    }
 
     req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
