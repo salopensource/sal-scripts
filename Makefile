@@ -8,6 +8,15 @@ PAYLOAD=\
 	pack-yaml \
 	pack-sal-submit
 
+GOPATH=$(shell pwd)/vendor:$(shell pwd)
+GOBIN=$(shell pwd)/bin
+GOFILES=$(wildcard *.go)
+GONAME=$(shell basename "$(PWD)")
+
+broken_client:
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go get .
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go build report_broken_clients.go
+
 pack-yaml: l_usr_local
 	@sudo find . -name "*.pyc" -exec rm -rf {} \;
 	@sudo mkdir -p ${WORK_D}/usr/local/sal/yaml
@@ -22,8 +31,9 @@ l_munki: l_usr_local
 	@sudo mkdir -p ${WORK_D}/usr/local/munki/preflight.d
 	@sudo chown root:wheel ${WORK_D}/usr/local/munki/preflight.d
 
-pack-sal-submit: l_munki
+pack-sal-submit: l_munki broken_client
 	@sudo ${INSTALL} -m 755 -g wheel -o root "postflight" ${WORK_D}/usr/local/munki
 	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight" ${WORK_D}/usr/local/munki
 	@sudo ${INSTALL} -m 755 -g wheel -o root "postflight.d/sal-postflight" ${WORK_D}/usr/local/munki/postflight.d
 	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight.d/sal-preflight" ${WORK_D}/usr/local/munki/preflight.d
+	@sudo ${INSTALL} -m 755 -g wheel -o root "report_broken_clients" ${WORK_D}/usr/local/munki

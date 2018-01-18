@@ -2,19 +2,16 @@ package main
 
 import (
     "fmt"
-    // "log"
-    // "io/ioutil"
-    // "time"
-    // "os"
     "os/exec"
     "strings"
+    "io/ioutil"
+    "net/http"
+    "net/url"
 
     "github.com/groob/mackit/cfpref"
-    // "gopkg.in/yaml.v2"
-    // "github.com/groob/plist"
 )
 
-func SerialNumber() string {
+func serialNumber() string {
     out, _ := exec.Command("/usr/sbin/ioreg", "-l").Output() // err ignored for brevity
     for _, l := range strings.Split(string(out), "\n") {
         if strings.Contains(l, "IOPlatformSerialNumber") {
@@ -26,24 +23,49 @@ func SerialNumber() string {
     return ""
 }
 
-// func GetPref(preference string, key string) string {
-//     theKey := fmt.Sprintf("$.CFPreferencesCopyAppValue('%s',", key)
-//     thePreference := fmt.Sprintf("'%s');", preference)
-
-//     out, err := exec.Command("osascript", "-l", "JavaScript", "-e,", "\"ObjC.import('Foundation');", theKey, thePreference).Output()
-//     fmt.Printf("%s", string(out[:]))
-//     if err != nil {
-        
-//         log.Fatal(err)
-//     }
-
-//     return string(out[:])
-// }
 
 func main() {
-    //fmt.Printf("%s", SerialNumber())
-    url := cfpref.CopyAppValue("ServerURL", "com.github.salopensource.sal")
+    serial_number:= serialNumber()
+    sal_url := cfpref.CopyAppValue("ServerURL", "com.github.salopensource.sal")
     key := cfpref.CopyAppValue("key", "com.github.salopensource.sal")
-    fmt.Println(url)
+
+    //Testing
+    // sal_url := "http://127.0.0.1:8000"
+    // Now you all know the key for my test group on my computer.
+    // key := "2k4wohv0sopmzkfp5ocubal47iwds8ddz8h4w7kjbcdjmbyhlgiztdyj7e8up048l89u35vqt08l4jrrkmaegj0j9ba264g3r80geybog0e9e2wrik6jqow7wh4fb5az"
+
+    the_url := fmt.Sprintf("%v/checkin/", sal_url)
+    fmt.Println(the_url)
+    the_key := fmt.Sprintf("%v", key)
     fmt.Println(key)
+
+    v := url.Values{}
+    v.Set("broken_client", "True")
+    v.Set("key", the_key)
+    v.Set("serial", serial_number)
+
+    req, err := http.NewRequest("POST", the_url, strings.NewReader(v.Encode()))
+       if err != nil {
+            panic(fmt.Errorf("failed to create request: %s", err))
+        }
+
+    req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+    req.SetBasicAuth("sal", the_key)
+
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        panic(fmt.Errorf("failed to checkin: %s", err))
+    }
+
+    defer resp.Body.Close()
+
+    bodyBytes, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        panic(err)
+    }
+ 
+    bodyString := string(bodyBytes)
+
+    fmt.Println(bodyString)
 }

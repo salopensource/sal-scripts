@@ -60,3 +60,8 @@ target/
 *.pkg
 
 FoundationPlist.py
+
+# Go junk
+bin/
+vendor/
+report_broken_clients
