@@ -589,7 +589,7 @@ def send_catalogs(ServerURL, catalog_data):
         remote_data = FoundationPlist.readPlistFromString(response)
     except FoundationPlist.NSPropertyListSerializationException:
         remote_data = {}
-    if stderr is not None:
+    if stderr:
         for catalog in check_list:
             send = True
             for remote_item in remote_data:
