@@ -64,4 +64,4 @@ FoundationPlist.py
 # Go junk
 bin/
 vendor/
-report_broken_clients
+report_broken_client

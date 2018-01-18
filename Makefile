@@ -15,7 +15,7 @@ GONAME=$(shell basename "$(PWD)")
 
 broken_client:
 	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go get .
-	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go build report_broken_clients.go
+	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go build report_broken_client.go
 
 pack-yaml: l_usr_local
 	@sudo find . -name "*.pyc" -exec rm -rf {} \;
@@ -36,4 +36,4 @@ pack-sal-submit: l_munki broken_client
 	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight" ${WORK_D}/usr/local/munki
 	@sudo ${INSTALL} -m 755 -g wheel -o root "postflight.d/sal-postflight" ${WORK_D}/usr/local/munki/postflight.d
 	@sudo ${INSTALL} -m 755 -g wheel -o root "preflight.d/sal-preflight" ${WORK_D}/usr/local/munki/preflight.d
-	@sudo ${INSTALL} -m 755 -g wheel -o root "report_broken_clients" ${WORK_D}/usr/local/munki
+	@sudo ${INSTALL} -m 755 -g wheel -o root "report_broken_client" ${WORK_D}/usr/local/munki
