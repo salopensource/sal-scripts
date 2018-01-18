@@ -96,6 +96,13 @@ def curl(url, data=None):
         key = pref('key')
         user_pass = 'sal:%s' % key
         cmd += ['--user', user_pass]
+        
+    ssl_client_cert = pref('SSLClientCertificate')
+    ssl_client_key = pref('SSLClientKey')
+    if ssl_client_cert:
+        cmd += ['--cert', ssl_client_cert]
+        if ssl_client_key:
+            cmd += ['--key', ssl_client_key]
 
     max_time = '8' if data else '4'
     cmd += ['--max-time', max_time]
