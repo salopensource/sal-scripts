@@ -71,9 +71,13 @@ def main():
     if utils.pref('GetGrains'):
         grains = get_grain_report(insert_name)
         report['Facter'].update(grains)
-        insert_name = True  #set in case ohai is needed as well
+        insert_name = True  # set in case ohai is needed as well
     if utils.pref('GetOhai'):
-        ohais = get_ohai_report(insert_name)
+        if utils.pref('OhaiClientConfigPath'):
+            clientrbpath = utils.pref('OhaiClientConfigPath')
+        else:
+            clientrbpath = '/private/etc/chef/client.rb'
+        ohais = get_ohai_report(insert_name, clientrbpath)
         report['Facter'].update(ohais)
 
     report['os_family'] = 'Darwin'
@@ -283,13 +287,16 @@ def get_puppet_report():
     return puppetreport
 
 
-def get_ohai_report(insert_name):
+def get_ohai_report(insert_name, clientrbpath):
     report = None
     ohai_path = '/opt/chef/bin/ohai'
     ohai = dict()
     new_ohai = dict()
     if os.path.exists(ohai_path):
-        command = [ohai_path, '-c', '/private/etc/chef/client.rb']
+        if os.path.exists(clientrbpath):
+            command = [ohai_path, '-c', clientrbpath]
+        else:
+            command = [ohai_path]
         try:
             report = subprocess.check_output(command)
         except subprocess.CalledProcessError as error:
@@ -589,7 +596,7 @@ def send_catalogs(ServerURL, catalog_data):
         remote_data = FoundationPlist.readPlistFromString(response)
     except FoundationPlist.NSPropertyListSerializationException:
         remote_data = {}
-    if stderr:
+    if stderr is not None:
         for catalog in check_list:
             send = True
             for remote_item in remote_data:
