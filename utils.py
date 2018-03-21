@@ -79,8 +79,7 @@ def pref(pref_name):
 
 
 def curl(url, data=None):
-    cmd = [
-        '/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
+    cmd = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
 
     # Use a PEM format certificate file to verify the peer. This is
     # useful primarily to support self-signed certificates, which are
@@ -96,7 +95,7 @@ def curl(url, data=None):
         key = pref('key')
         user_pass = 'sal:%s' % key
         cmd += ['--user', user_pass]
-        
+
     ssl_client_cert = pref('SSLClientCertificate')
     ssl_client_key = pref('SSLClientKey')
     if ssl_client_cert:
