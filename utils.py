@@ -3,6 +3,7 @@
 
 import hashlib
 import os
+import stat
 import subprocess
 import sys
 
@@ -169,3 +170,14 @@ def add_plugin_results(plugin, data, historical=False):
     plugin_results.append({'plugin': plugin, 'historical': historical, 'data': data})
     FoundationPlist.writePlist(plugin_results, plist_path)
 
+
+def run_scripts(dir_path, cli_args):
+    for script in os.listdir(dir_path):
+        script_stat = os.stat(os.path.join(dir_path, script))
+        if not script_stat.st_mode & stat.S_IWOTH:
+            try:
+                subprocess.call([os.path.join(dir_path, script), cli_args, stdin=None)
+            except (OSError, subprocess.CalledProcessError):
+                print "'{}' had errors during execution!".format(script)
+        else:
+            print "'{}' is not executable or has bad permissions".format(script)
