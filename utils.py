@@ -3,9 +3,12 @@
 
 import hashlib
 import os
+import stat
 import subprocess
 import sys
-import tempfile
+
+sys.path.append('/usr/local/munki')
+from munkilib import FoundationPlist
 from Foundation import kCFPreferencesAnyUser, \
                        kCFPreferencesCurrentHost, \
                        CFPreferencesSetValue, \
@@ -79,8 +82,7 @@ def pref(pref_name):
 
 
 def curl(url, data=None):
-    cmd = [
-        '/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
+    cmd = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
 
     # Use a PEM format certificate file to verify the peer. This is
     # useful primarily to support self-signed certificates, which are
@@ -96,7 +98,7 @@ def curl(url, data=None):
         key = pref('key')
         user_pass = 'sal:%s' % key
         cmd += ['--user', user_pass]
-        
+
     ssl_client_cert = pref('SSLClientCertificate')
     ssl_client_key = pref('SSLClientKey')
     if ssl_client_cert:
@@ -145,3 +147,37 @@ def dict_clean(items):
             result[key] = value
 
     return result
+
+
+def add_plugin_results(plugin, data, historical=False):
+    """Add data to the shared plugin results plist.
+
+    This function creates the shared results plist file if it does not
+    already exist; otherwise, it adds the entry by appending.
+
+    Args:
+        plugin (str): Name of the plugin returning data.
+        data (dict): Dictionary of results.
+        historical (bool): Whether to keep only one record (False) or
+            all results (True). Optional, defaults to False.
+    """
+    plist_path = '/usr/local/sal/plugin_results.plist'
+    if os.path.exists(plist_path):
+        plugin_results = FoundationPlist.readPlist(plist_path)
+    else:
+        plugin_results = []
+
+    plugin_results.append({'plugin': plugin, 'historical': historical, 'data': data})
+    FoundationPlist.writePlist(plugin_results, plist_path)
+
+
+def run_scripts(dir_path, cli_args):
+    for script in os.listdir(dir_path):
+        script_stat = os.stat(os.path.join(dir_path, script))
+        if not script_stat.st_mode & stat.S_IWOTH:
+            try:
+                subprocess.call([os.path.join(dir_path, script), cli_args], stdin=None)
+            except (OSError, subprocess.CalledProcessError):
+                print "'{}' had errors during execution!".format(script)
+        else:
+            print "'{}' is not executable or has bad permissions".format(script)
