@@ -176,7 +176,7 @@ def run_scripts(dir_path, cli_args):
         script_stat = os.stat(os.path.join(dir_path, script))
         if not script_stat.st_mode & stat.S_IWOTH:
             try:
-                subprocess.call([os.path.join(dir_path, script), cli_args, stdin=None)
+                subprocess.call([os.path.join(dir_path, script), cli_args], stdin=None)
             except (OSError, subprocess.CalledProcessError):
                 print "'{}' had errors during execution!".format(script)
         else:
