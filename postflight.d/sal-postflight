@@ -1,8 +1,9 @@
 #!/usr/bin/python
-#
-#    sal-postflight
-#        Submits inventory to an instance of Sal
-#
+"""sal-postflight
+
+Submits inventory to an instance of Sal
+"""
+
 
 import base64
 import bz2
@@ -11,12 +12,12 @@ import hashlib
 import json
 import optparse
 import os
-from pprint import pformat
 import subprocess
 import sys
 import urllib
 import uuid
 import stat
+from pprint import pformat
 
 # pylint: disable=E0611
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
