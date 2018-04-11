@@ -14,6 +14,7 @@ import optparse
 import os
 import subprocess
 import sys
+import tempfile
 import urllib
 import uuid
 import stat
@@ -30,7 +31,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '2.0.7'
+VERSION = '2.1.0'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
@@ -99,6 +100,7 @@ def main():
         send_hashed(ServerURL, copy.copy(submission))
         send_install(ServerURL, copy.copy(submission))
         send_catalogs(ServerURL, copy.copy(submission))
+        send_profiles(ServerURL, copy.copy(submission))
 
 
 def set_verbosity():
@@ -571,6 +573,25 @@ def run_external_scripts(runtype):
                     msg = "'{}' is not executable! Skipping."
                     munkicommon.display_debug1(msg.format(script_path))
 
+
+def send_profiles(ServerURL, profile_data):
+    devnull = open(os.devnull, 'w')
+    profile_submit_url = os.path.join(ServerURL, 'profiles/submit', '')
+    temp_dir = tempfile.mkdtemp()
+    profile_out = os.path.join(temp_dir, 'profiles.plist')
+    cmd = ['/usr/bin/profiles', '-C', '-o', profile_out]
+    try:
+        subprocess.call(cmd, stdout=devnull)
+    except OSError:
+        munkicommon.display_debug2("Couldn't output profiles.")
+        return
+
+    profiles, _ = utils.get_file_and_hash(profile_out)
+    os.remove(profile_out)
+    profile_data['base64bz2profiles'] = (
+                base64.b64encode(bz2.compress(profiles)))
+    munkicommon.display_debug2("Profiles Response:")
+    stdout, stderr = send_report(profile_submit_url, profile_data)
 
 def send_catalogs(ServerURL, catalog_data):
     hashurl = os.path.join(ServerURL, 'catalog/hash', '')
