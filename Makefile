@@ -8,8 +8,8 @@ PAYLOAD=\
 	pack-yaml \
 	pack-sal-submit
 
-GOPATH=$(shell pwd)/vendor:$(shell pwd)
-GOBIN=$(shell pwd)/bin
+GOPATH="$(shell pwd)/vendor:$(shell pwd)"
+GOBIN="$(shell pwd)/bin"
 GOFILES=$(wildcard *.go)
 GONAME=$(shell basename "$(PWD)")
 
