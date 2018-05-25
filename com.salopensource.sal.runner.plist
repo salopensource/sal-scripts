@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.salopensource.sal.runner</string>
+	<key>Program</key>
+	<string>/usr/bin/python /usr/local/sal/bin/sal-submit</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StartInterval</key>
+	<integer>1800</integer>
+	<key>WatchPaths</key>
+	<array>
+		<string>/Users/Shared/.com.salopensource.sal.run</string>
+	</array>
+</dict>
+</plist>

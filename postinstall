@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ "$3" == "/" ]; then
+    /bin/launchctl unload /Library/LaunchDaemons/com.github.salopensource.runner.plist
+    /bin/launchctl load /Library/LaunchDaemons/com.github.salopensource.runner.plist
+fi
+
+# This shouldn't kill the whole package install
+exit 0

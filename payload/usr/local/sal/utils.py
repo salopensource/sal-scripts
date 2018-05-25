@@ -10,11 +10,11 @@ import sys
 sys.path.append('/usr/local/munki')
 from munkilib import FoundationPlist
 from Foundation import kCFPreferencesAnyUser, \
-                       kCFPreferencesCurrentHost, \
-                       CFPreferencesSetValue, \
-                       CFPreferencesAppSynchronize, \
-                       CFPreferencesCopyAppValue, \
-                       NSDate, NSArray
+    kCFPreferencesCurrentHost, \
+    CFPreferencesSetValue, \
+    CFPreferencesAppSynchronize, \
+    CFPreferencesCopyAppValue, \
+    NSDate, NSArray
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
@@ -67,7 +67,7 @@ def pref(pref_name):
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value == None and pref_name in default_prefs:
+    if pref_value is None and pref_name in default_prefs:
         pref_value = default_prefs.get(pref_name)
         # we're using a default value. We'll write it out to
         # /Library/Preferences/<BUNDLE_ID>.plist for admin
@@ -79,6 +79,45 @@ def pref(pref_name):
         pref_value = str(pref_value)
 
     return pref_value
+
+
+def pythonScriptRunning(scriptname):
+    """
+    Returns Process ID for a running python script.
+    Not at all stolen from Munki. Honest.
+    """
+    cmd = ['/bin/ps', '-eo', 'pid=,command=']
+    proc = subprocess.Popen(cmd, shell=False, bufsize=1,
+                            stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    (out, dummy_err) = proc.communicate()
+    mypid = os.getpid()
+    lines = str(out).splitlines()
+    for line in lines:
+        try:
+            (pid, process) = line.split(None, 1)
+        except ValueError:
+            # funky process line, so we'll skip it
+            pass
+        else:
+            args = process.split()
+            try:
+                # first look for Python processes
+                if (args[0].find('MacOS/Python') != -1 or
+                        args[0].find('python') != -1):
+                    # look for first argument being scriptname
+                    if args[1].find(scriptname) != -1:
+                        try:
+                            if int(pid) != int(mypid):
+                                return pid
+                        except ValueError:
+                            # pid must have some funky characters
+                            pass
+            except IndexError:
+                pass
+    # if we get here we didn't find a Python script with scriptname
+    # (other than ourselves)
+    return 0
 
 
 def curl(url, data=None):
@@ -143,7 +182,7 @@ def dict_clean(items):
                 skip = True
                 break
 
-        if skip == False:
+        if not skip:
             result[key] = value
 
     return result
