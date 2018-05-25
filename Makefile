@@ -1,18 +1,18 @@
 USE_PKGBUILD=1
 include /usr/local/share/luggage/luggage.make
-PACKAGE_VERSION:=$(shell sed -n -e '/^VERSION/p' payload/usr/local/munki/postflight.d/sal-postflight | cut -d "'" -f 2)
+PACKAGE_VERSION:=$(shell sed -n -e '/^VERSION/p' payload/usr/local/sal/bin/sal-submit | cut -d "'" -f 2)
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
 REVERSE_DOMAIN=com.github.salopensource
 PAYLOAD=\
 	pack-sal-scripts \
-	pack-Library-LaunchDaemons-com.salopensource.sal.runner.plist
+	pack-Library-LaunchDaemons-com.salopensource.sal.runner.plist \
 	pack-script-postinstall
 
-GOPATH="$(shell pwd)/vendor:$(shell pwd)"
-GOBIN="$(shell pwd)/bin"
-GOFILES=$(wildcard *.go)
-GONAME=$(shell basename "$(PWD)")
+# GOPATH="$(shell pwd)/vendor:$(shell pwd)"
+# GOBIN="$(shell pwd)/bin"
+# GOFILES=$(wildcard *.go)
+# GONAME=$(shell basename "$(PWD)")
 
 # pack-broken-client: pack-sal-scripts
 # 	@GOPATH=$(GOPATH) GOBIN=$(GOBIN) go get .
