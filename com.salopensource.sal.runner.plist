@@ -8,8 +8,6 @@
 	<string>/usr/local/sal/bin/sal-submit</string>
 	<key>RunAtLoad</key>
 	<true/>
-	<key>StartInterval</key>
-	<integer>1800</integer>
 	<key>WatchPaths</key>
 	<array>
 		<string>/Users/Shared/.com.salopensource.sal.run</string>

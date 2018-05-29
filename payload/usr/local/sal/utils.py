@@ -6,6 +6,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 
 sys.path.append('/usr/local/munki')
 from munkilib import FoundationPlist
@@ -82,6 +83,24 @@ def pref(pref_name):
 
 
 def pythonScriptRunning(scriptname):
+    """
+    Tests if a script is running. If it is found running, it will try
+    up to two more times to see if it has exited.
+    """
+
+    counter = 0
+    pid = 0
+    while True:
+        if counter == 3:
+            return pid
+        pid = check_script_running(scriptname)
+        if not pid:
+            return pid
+        else:
+            time.sleep(1)
+            counter = counter + 1
+
+def check_script_running(scriptname):
     """
     Returns Process ID for a running python script.
     Not at all stolen from Munki. Honest.
