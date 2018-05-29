@@ -1,0 +1,4 @@
+[flake8]
+ignore = F401,F405,E402,F403
+max-line-length = 100
+exclude = payload/usr/local/sal/yaml/*, FoundationPlist.py

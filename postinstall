@@ -1,0 +1,12 @@
+#!/bin/bash
+
+if [ "$3" == "/" ]; then
+    /bin/launchctl unload /Library/LaunchDaemons/com.salopensource.sal.runner.plist
+    /bin/launchctl load /Library/LaunchDaemons/com.salopensource.sal.runner.plist
+
+    /bin/launchctl unload /Library/LaunchDaemons/com.salopensource.sal.random.runner.plist
+    /bin/launchctl load /Library/LaunchDaemons/com.salopensource.sal.random.runner.plist
+fi
+
+# This shouldn't kill the whole package install
+exit 0
