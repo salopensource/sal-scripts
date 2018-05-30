@@ -22,7 +22,9 @@ let defaults = UserDefaults.init(suiteName: "com.github.salopensource.sal")
 
 let key = defaults?.string(forKey: "key") ?? ""
 
-let urlString =  defaults?.string(forKey: "url") ?? ""
+var urlString =  defaults?.string(forKey: "ServerURL") ?? ""
+
+urlString = urlString + "/checkin/"
 
 let serial = getSerial()
 
