@@ -1,0 +1,50 @@
+#!/usr/bin/python
+
+import subprocess
+import optparse
+import time
+
+def get_options():
+    """Return commandline options."""
+    usage = "%prog [options]"
+    option_parser = optparse.OptionParser(usage=usage)
+    option_parser.add_option(
+        "--delay", default=0, type=int,
+        help="Delay running for between 0 and N seconds.")
+    option_parser.add_option(
+        "--path", default='/usr/local/sal/bin/sal-submit', type=str,
+        help="Path to script to run")
+    # We have no arguments, so don't store the results.
+    opts, _ = option_parser.parse_args()
+    return opts
+
+def random_delay(delay):
+    if delay == 0:
+        print 'No delay set'
+        return
+    randomized_delay = random.randrange(0, delay)
+    print "Delaying run by %s seconds" % randomized_delay
+    time.sleep(randomized_delay)
+
+def execute_path(path):
+    path_stat = os.stat(path)
+    if not path_stat.st_mode & stat.S_IWOTH:
+        try:
+            subprocess.call([path], stdin=None)
+        except (OSError, subprocess.CalledProcessError):
+            print "'{}' had errors during execution!".format(path)
+    else:
+        print "'{}' is not executable or has bad permissions".format(path)
+
+def main():
+    opts = get_options()
+    path = opts.path
+    delay = opts.delay
+
+    if delay > 0:
+        random_delay(delay)
+
+    execute_path(path)
+
+if __name__ == '__main__':
+    main()
