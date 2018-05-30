@@ -22,3 +22,6 @@ pack-sal-scripts: l_usr_local
 	@sudo ${CP} -R payload/ ${WORK_D}
 	@sudo chown -R root:wheel ${WORK_D}
 	@sudo chmod -R 755 ${WORK_D}
+
+install: pkg
+	@sudo installer -pkg sal_scripts.pkg -target /

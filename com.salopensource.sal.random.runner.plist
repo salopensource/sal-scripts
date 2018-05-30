@@ -6,8 +6,10 @@
 	<string>com.salopensource.sal.random.runner</string>
 	<key>ProgramArguments</key>
 	<array>
+		<string>/usr/local/sal/bin/randomizer</string>
+		<string>--path</string>
 		<string>/usr/local/sal/bin/sal-submit</string>
-		<string>--random</string>
+		<string>--delay</string>
 		<string>1500</string>
 	</array>
 	<key>RunAtLoad</key>

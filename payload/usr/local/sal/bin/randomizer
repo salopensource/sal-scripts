@@ -2,7 +2,10 @@
 
 import subprocess
 import optparse
+import os
 import time
+import random
+import stat
 
 def get_options():
     """Return commandline options."""
