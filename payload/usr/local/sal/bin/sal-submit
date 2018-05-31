@@ -649,7 +649,11 @@ def send_catalogs(ServerURL, catalog_data):
 
                 munkicommon.display_debug2(
                     "Submitting Catalog: {}".format(catalog['name']))
-                send_report(catalogsubmiturl, catalog_data)
+                try:
+                    send_report(catalogsubmiturl, catalog_data)
+                except OSError:
+                    munkicommon.display_debug2(
+                        "Error while submitting Catalog: {}".format(catalog['name']))
 
 
 if __name__ == '__main__':
