@@ -10,6 +10,9 @@ SUBMIT_SCRIPT = '/usr/local/sal/bin/sal-submit'
 
 
 def write_touch_file():
+    if os.path.exists(TOUCH_FILE_PATH):
+        os.unlink(TOUCH_FILE_PATH)
+        
     if not os.path.exists(TOUCH_FILE_PATH):
         with open(TOUCH_FILE_PATH, 'a'):
             os.utime(TOUCH_FILE_PATH, None)
