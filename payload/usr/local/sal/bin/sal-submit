@@ -60,7 +60,9 @@ def main():
                  'mode.')
     runtype = get_runtype(report)
     report['MachineInfo']['SystemProfile'] = get_sys_profile()
-    report['MachineInfo']['machine_model_friendly'] = get_friendly_model(serial)
+    friendly_model = get_friendly_model(serial)
+    if friendly_model:
+        report['MachineInfo']['machine_model_friendly'] = friendly_model
     puppet_version = puppet_vers()
     if puppet_version != "" and puppet_version is not None:
         report['Puppet_Version'] = puppet_version
