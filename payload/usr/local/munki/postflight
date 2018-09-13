@@ -1,19 +1,29 @@
 #!/usr/bin/python
-"""Run all scripts found in the Munki postflight.d directory."""
-
-
+# patch for safety on Graham Gilbert's version
+# https://github.com/salsoftware/sal/blob/master/scripts/postflight
 import sys
-
-sys.path.append('/usr/local/sal')
-import utils
-
+import os
+import subprocess
 
 POSTFLIGHT_DIR = '/usr/local/munki/postflight.d'
 
 
-def main():
-    utils.run_scripts(POSTFLIGHT_DIR, sys.argv[1])
+def iter_postflight_scripts(postflight_dir):
+    for script in os.listdir(postflight_dir):
+        script_path = os.path.join(postflight_dir, script)
+        if not os.access(script_path, os.X_OK):
+            print "'%s' is not executable or has bad permissions" % script_path
+        else:
+            yield script_path
 
 
-if __name__ == "__main__":
-    main()
+def execute_postflight_scripts(postflight_dir):
+    for script_path in iter_postflight_scripts(postflight_dir):
+        try:
+            subprocess.call([script_path, sys.argv[1]])
+        except OSError:
+            print "Could not execute script '%s'!" % script_path
+
+
+if __name__ == '__main__':
+    execute_postflight_scripts(POSTFLIGHT_DIR)
