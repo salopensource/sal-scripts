@@ -47,7 +47,7 @@ def main():
     other_sal_pid = utils.pythonScriptRunning('sal-submit')
     if other_sal_pid:
         sys.exit('Another instance of sal-submit is already running. Exiting.')
-    
+
     time.sleep(1)
     munki_pid = utils.pythonScriptRunning('managedsoftwareupdate')
     if munki_pid:
@@ -94,6 +94,14 @@ def main():
             clientrbpath = '/private/etc/chef/client.rb'
         ohais = get_ohai_report(insert_name, clientrbpath)
         report['Facter'].update(ohais)
+        insert_name = True # set in case json is needed as well
+    if utils.pref('GetJson'):
+        if utils.pref('JsonPath'):
+            json_path = utils.pref('JsonPath')
+        else:
+            json_path = '/usr/local/sal/json_report.json'
+        jsons = get_json_report(insert_name, json_path)
+        report['Facter'].update(jsons)
 
     report['os_family'] = 'Darwin'
 
@@ -114,7 +122,7 @@ def main():
         send_install(ServerURL, copy.copy(submission))
         send_catalogs(ServerURL, copy.copy(submission))
         send_profiles(ServerURL, copy.copy(submission))
-    
+
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
         os.remove(touchfile)
@@ -312,6 +320,27 @@ def get_puppet_report():
         munkicommon.display_debug2(pformat(puppetreport))
 
     return puppetreport
+
+def get_json_report(insert_name, json_path):
+    json_dict = dict()
+    new_json = dict()
+    if os.path.exists(json_path):
+        try:
+            with open(json_path) as f:
+                json_dict = json.load(f)
+        except TypeError as error:
+            munkicommon.display_debug2('Issue getting json report:')
+            munkicommon.display_debug2(error.message)
+
+    if json_dict:
+        for key, value in json_dict.items():
+            if insert_name:
+                key = '{0}=>{1}'.format('json', key)
+            new_json[key] = value
+    munkicommon.display_debug2('JSON Output:')
+    munkicommon.display_debug2(pformat(json_dict))
+
+    return hashrocket_flatten_dict(new_json)
 
 
 def get_ohai_report(insert_name, clientrbpath):
