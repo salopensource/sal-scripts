@@ -2,6 +2,7 @@
 
 
 import hashlib
+import json
 import os
 import stat
 import subprocess
@@ -43,7 +44,7 @@ def set_pref(pref_name, pref_value):
         pass
 
 
-def pref(pref_name):
+def pref(pref_name, default=None):
     """Return a preference value.
 
     Since this uses CFPreferencesCopyAppValue, Preferences can be defined
@@ -64,7 +65,9 @@ def pref(pref_name):
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value is None and pref_name in default_prefs:
+    if pref_value is None and default:
+        pref_value = default
+    elif pref_value is None and pref_name in default_prefs:
         pref_value = default_prefs.get(pref_name)
         # we're using a default value. We'll write it out to
         # /Library/Preferences/<BUNDLE_ID>.plist for admin
@@ -225,6 +228,28 @@ def add_plugin_results(plugin, data, historical=False):
     FoundationPlist.writePlist(plugin_results, plist_path)
 
 
+def add_checkin_results(module_name, data):
+    """Add data to the shared results JSON file.
+
+    This function creates the shared results file if it does not
+    already exist; otherwise, it adds the entry by module_name as a key.
+
+    Args:
+        module_name (str): Name of the management source returning data.
+        data (dict): Dictionary of results.
+    """
+    results_path = '/usr/local/sal/checkin_results.json'
+    if os.path.exists(results_path):
+        with open(results_path) as results_handle:
+            results = json.load(results_handle)
+    else:
+        results = {}
+
+    results[module_name] = data
+    with open(results_path, 'w') as results_handle:
+        json.dump(results, results_handle)
+
+
 def run_scripts(dir_path, cli_args):
     for script in os.listdir(dir_path):
         script_stat = os.stat(os.path.join(dir_path, script))
@@ -235,3 +260,27 @@ def run_scripts(dir_path, cli_args):
                 print "'{}' had errors during execution!".format(script)
         else:
             print "'{}' is not executable or has bad permissions".format(script)
+
+
+def get_server_prefs():
+    """Get Sal preferences, bailing if required info is missing.
+
+    Returns:
+        Tuple of (Server URL, NameType, and key (business unit key)
+    """
+    # Check for mandatory prefs and bail if any are missing.
+    required_prefs = {
+        # TODO: Is this really required?
+        'key': pref('key'),
+        'server_url': pref('ServerURL').rstrip('/')}
+
+    for key, val in required_prefs.items():
+        if not val:
+            sys.exit('Required Sal preference "{}" is not set.'.format(key))
+
+    # Get optional preferences.
+    name_type = pref('NameType', default='ComputerName')
+
+    return required_prefs["server_url"], name_type, required_prefs["key"]
+
+
