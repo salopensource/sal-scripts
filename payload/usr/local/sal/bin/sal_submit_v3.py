@@ -5,15 +5,22 @@ Coordinates running checkin modules and submitting their results to Sal.
 """
 
 
+import json
 import os
 import optparse
+import subprocess
 import sys
+
+from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
 sys.path.append('/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
+sys.path.append('/usr/local/sal')
+import utils
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
+CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 VERSION = '2.1.3'
 
 
@@ -26,23 +33,21 @@ def main():
     time.sleep(1)
     if  utils.python_script_running('managedsoftwareupdate')
         sys.exit('managedsoftwareupdate is running. Exiting.')
-    # report = get_managed_install_report()
-    # serial = report['MachineInfo'].get('serial_number')
-    # if not serial:
-    #     sys.exit('Unable to get MachineInfo from ManagedInstallReport.plist. '
-    #              'This is usually due to running Munki in Apple Software only '
-    #              'mode.')
-    # runtype = get_runtype(report)
-    # report['MachineInfo']['SystemProfile'] = get_sys_profile()
-    # friendly_model = get_friendly_model(serial)
-    # if friendly_model:
-    #     report['MachineInfo']['machine_model_friendly'] = friendly_model
+
+    submission = {}
+
+    utils.run_scripts(CHECKIN_MODULES_DIR, sys.argv[1])
+
+    # TODO: Build Munki section
+    # TODO: Build Sal section
+
     # puppet_version = puppet_vers()
     # if puppet_version != "" and puppet_version is not None:
     #     report['Puppet_Version'] = puppet_version
     # puppet_report = get_puppet_report()
     # if puppet_report != {}:
     #     report['Puppet'] = puppet_report
+
     # plugin_results_path = '/usr/local/sal/plugin_results.plist'
     # try:
     #     run_external_scripts(runtype)
@@ -71,27 +76,30 @@ def main():
 
     # report['os_family'] = 'Darwin'
 
-    # ServerURL, NameType, bu_key = get_server_prefs()
+    server_url, name_type, bu_key = utils.get_server_prefs()
+    # TODO: Move to machine module
     # net_config = SCDynamicStoreCreate(None, "net", None, None)
-    # name = get_machine_name(net_config, NameType)
+    # name = get_machine_name(net_config, name_type)
     # run_uuid = uuid.uuid4()
     # submission = get_data(serial, bu_key, name, run_uuid)
 
-    # # Shallow copy the submission dict to reuse common values and avoid
-    # # wasting bandwidth by sending unrelated data. (Alternately, we
-    # # could `del submission[some_key]`).
-    # send_checkin(ServerURL, copy.copy(submission), report)
-    # # Only perform these when a user isn't running MSC manually to speed up the
-    # # run
-    # if runtype != 'manual':
-    #     send_hashed(ServerURL, copy.copy(submission))
-    #     send_install(ServerURL, copy.copy(submission))
-    #     send_catalogs(ServerURL, copy.copy(submission))
-    #     send_profiles(ServerURL, copy.copy(submission))
+    # Shallow copy the submission dict to reuse common values and avoid
+    # wasting bandwidth by sending unrelated data. (Alternately, we
+    # could `del submission[some_key]`).
+    # TODO: This isn't right at all. Just left uncommented.
+    send_checkin(server_url, copy.copy(submission), report)
+    # Only perform these when a user isn't running MSC manually to speed up the
+    # run
+    # TODO: These need to be updated for the new submission format
+    if runtype != 'manual':
+        send_hashed(server_url, copy.copy(submission))
+        send_install(server_url, copy.copy(submission))
+        send_catalogs(server_url, copy.copy(submission))
+        send_profiles(server_url, copy.copy(submission))
 
-    # touchfile = '/Users/Shared/.com.salopensource.sal.run'
-    # if os.path.exists(touchfile):
-    #     os.remove(touchfile)
+    touchfile = '/Users/Shared/.com.salopensource.sal.run'
+    if os.path.exists(touchfile):
+        os.remove(touchfile)
 
 
 def set_verbosity():
@@ -116,6 +124,23 @@ def exit_if_not_root():
     uid = os.geteuid()
     if uid != 0:
         sys.exit("Manually running this script requires sudo.")
+
+
+def send_checkin(server_url, checkin_data, report):
+    checkinurl = os.path.join(server_url, 'checkin', '')
+    munkicommon.display_debug2("Checkin Response:")
+    send_report(checkinurl, checkin_data)
+
+
+def send_report(url, report):
+    encoded_data = urllib.urlencode(report)
+    stdout, stderr = utils.curl(url, encoded_data)
+    if stderr:
+        munkicommon.display_debug2(stderr)
+    stdout_list = stdout.split("\n")
+    if "<h1>Page not found</h1>" not in stdout_list:
+        munkicommon.display_debug2(stdout)
+    return stdout, stderr
 
 
 if __name__ == "__main__":
