@@ -10,12 +10,8 @@ import time
 
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist
-from Foundation import kCFPreferencesAnyUser, \
-    kCFPreferencesCurrentHost, \
-    CFPreferencesSetValue, \
-    CFPreferencesAppSynchronize, \
-    CFPreferencesCopyAppValue, \
-    NSDate, NSArray
+from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
+                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray)
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
@@ -82,12 +78,11 @@ def pref(pref_name):
     return pref_value
 
 
-def pythonScriptRunning(scriptname):
-    """
-    Tests if a script is running. If it is found running, it will try
-    up to two more times to see if it has exited.
-    """
+def python_script_running(scriptname):
+    """Tests if a script is running.
 
+    If it is found running, it will try up to two more times to see if it has exited.
+    """
     counter = 0
     pid = 0
     while True:
@@ -99,6 +94,7 @@ def pythonScriptRunning(scriptname):
         else:
             time.sleep(1)
             counter = counter + 1
+
 
 def check_script_running(scriptname):
     """

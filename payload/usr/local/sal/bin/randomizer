@@ -1,11 +1,13 @@
 #!/usr/bin/python
 
+
 import subprocess
 import optparse
 import os
 import time
 import random
 import stat
+
 
 def get_options():
     """Return commandline options."""
@@ -21,6 +23,7 @@ def get_options():
     opts, _ = option_parser.parse_args()
     return opts
 
+
 def random_delay(delay):
     if delay == 0:
         print 'No delay set'
@@ -28,6 +31,7 @@ def random_delay(delay):
     randomized_delay = random.randrange(0, delay)
     print "Delaying run by %s seconds" % randomized_delay
     time.sleep(randomized_delay)
+
 
 def execute_path(path):
     path_stat = os.stat(path)
@@ -39,6 +43,7 @@ def execute_path(path):
     else:
         print "'{}' is not executable or has bad permissions".format(path)
 
+
 def main():
     opts = get_options()
     path = opts.path
@@ -48,6 +53,7 @@ def main():
         random_delay(delay)
 
     execute_path(path)
+
 
 if __name__ == '__main__':
     main()
