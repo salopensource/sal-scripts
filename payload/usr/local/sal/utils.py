@@ -17,6 +17,7 @@ from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPref
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
+VERSION = '3.0.0'
 
 
 class GurlError(Exception):
@@ -25,6 +26,10 @@ class GurlError(Exception):
 
 class HTTPError(Exception):
     pass
+
+
+def sal_version():
+    return VERSION
 
 
 def set_pref(pref_name, pref_value):

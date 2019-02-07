@@ -19,9 +19,7 @@ sys.path.append('/usr/local/sal')
 import utils
 
 
-BUNDLE_ID = 'com.github.salopensource.sal'
 CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
-VERSION = '2.1.3'
 
 
 def main():
