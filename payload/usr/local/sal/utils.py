@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 
+import datetime
 import hashlib
 import json
 import os
@@ -247,7 +248,13 @@ def add_checkin_results(module_name, data):
 
     results[module_name] = data
     with open(results_path, 'w') as results_handle:
-        json.dump(results, results_handle)
+        json.dump(results, results_handle, default=serializer)
+
+
+def serializer(obj):
+    if isinstance(obj, datetime.datetime):
+        obj = obj.isoformat() + 'Z'
+    return obj
 
 
 def run_scripts(dir_path, cli_args):
