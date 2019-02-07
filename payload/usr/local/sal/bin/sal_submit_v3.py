@@ -10,6 +10,7 @@ import os
 import optparse
 import subprocess
 import sys
+import time
 
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
@@ -25,11 +26,11 @@ CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 def main():
     set_verbosity()
     exit_if_not_root()
-    if utils.python_script_running('sal-submit')
+    if utils.python_script_running('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
 
     time.sleep(1)
-    if  utils.python_script_running('managedsoftwareupdate')
+    if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
     submission = {}
