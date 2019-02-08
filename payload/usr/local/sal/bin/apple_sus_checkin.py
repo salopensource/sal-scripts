@@ -2,16 +2,11 @@
 
 
 import datetime
-import os
-import plistlib
 import re
 import subprocess
 import sys
 from distutils.version import StrictVersion
-from xml.parsers.expat import ExpatError
 
-sys.path.append('/usr/local/munki')
-from munkilib import munkicommon
 sys.path.append('/usr/local/sal')
 import utils
 

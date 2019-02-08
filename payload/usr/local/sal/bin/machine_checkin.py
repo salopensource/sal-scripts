@@ -103,10 +103,10 @@ def get_disk_size():
       int, KBytes in total disk space
     """
     try:
-        st = os.statvfs('/')
-    except OSError, e:
+        stat = os.statvfs('/')
+    except OSError:
         return 0
-    total = (st.f_blocks * st.f_frsize) / 1024
+    total = (stat.f_blocks * stat.f_frsize) / 1024
     return int(total)
 
 
@@ -133,8 +133,7 @@ def get_machine_name(net_config, nametype):
     sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
     if sys_info:
         return sys_info.get(nametype)
-    else:
-        return subprocess.check_output(['/usr/sbin/scutil', '--get', 'ComputerName'])
+    return subprocess.check_output(['/usr/sbin/scutil', '--get', 'ComputerName'])
 
 
 def get_sys_profile():
