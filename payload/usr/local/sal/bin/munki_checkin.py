@@ -33,14 +33,18 @@ def main():
         for msg in munki_report[key]:
             munki_submission['messages'].append({'message_type': key, 'message': msg})
 
+    # TODO: Pull any histories that are sitting, waiting to be delivered to Sal in the
+    # checkin_results and add onto them rather than start from scratch.
+    # TODO: Should we make this TZ aware?
+    now = datetime.datetime.utcnow().isoformat()
     # Process managed items and update histories.
     munki_submission['managed_items'] = {}
-    munki_submission['update_history'] = {}
-    for item in munki_report['ManagedInstalls']:
+    munki_submission['update_history'] = []
+
+    for item in munki_report.get('ManagedInstalls', []):
         name = item['name']
         submission_item = {}
-        # TODO: Should we make this TZ aware?
-        submission_item['date_managed'] = datetime.datetime.utcnow().isoformat()
+        submission_item['date_managed'] = now
         submission_item['status'] = 'PRESENT' if item['installed'] else 'ABSENT'
         # Pop off these two since we already used them.
         item.pop('name')
@@ -49,36 +53,34 @@ def main():
         submission_item['data'] = item
         munki_submission['managed_items'][name] = submission_item
 
-        # TODO: Process pending into UHI
+        if submission_item['status'] == 'ABSENT':
+            # This is pending; put into update histories.
+            history = {'name': name, 'update_type': 'third_party', 'status': 'pending'}
+            history['date'] = now
+            history['version'] = item['version_to_install']
+            munki_submission['update_history'].append(history)
 
-    # TODO: Process InstallResults and RemovalResults into update history
+    # AppleUpdates section -> UpdateHistoryItem
+    for item in munki_report.get('AppleUpdates', []):
+        history = {'name': item['name'], 'update_type': 'apple', 'status': 'pending'}
+        history['date'] = now
+        history['version'] = item['version_to_install']
+        # TODO: This won't do anything on the server yet.
+        history['extra'] = item['productKey']
+        munki_submission['update_history'].append(history)
 
-    # TODO: AppleUpdates section -> UpdateHistory
+    # Process InstallResults and RemovalResults into update history
+    for report_key, result_type in (('InstallResults', 'install'), ('RemovalResults', 'removal')):
+        for item in munki_report.get(report_key, []):
+            history = {'name': item['name']}
+            history['update_type'] = 'apple' if item.get('applesus') else 'third_party'
+            history['version'] = item.get('version', '0')
+            history['status'] = 'error' if item.get('status') != 0 else result_type
+            history['recorded'] = pytz.timezone('UTC').localize(item['time'])
+            munki_submission['update_history'].append(history)
+
 
     utils.add_checkin_results('munki', munki_submission)
-
-    """
-    'update_history': [  # Records to add to the Update Histories: pending, results of installs/removals, Apple or 3rd party
-        {
-            'update_type': 'str',  # (One of 'third_party', 'apple'),
-            'name': 'str',
-            'version': 'str',
-            'date': '2019-02-01T13:00:00Z',  # UTC date time as str
-            'status': 'str',  # One of ('pending', 'error', 'install', 'removal')
-            'extra': 'str'
-        },
-        ...
-    'managed_items': {  # ManagedInstalls, ManagedUninstalls
-        '[item name]': {
-            'date_managed': '2019-02-01T13:00:00Z',  # UTC datetime as str
-            'status': 'str',  # See status choices
-            'retention': bool,  # Whether to retain up to your retention period, or delete on checkin if absent.
-            'data': {
-                'key': 'value',  # Arbitrary key value pairs of additional information.
-                'type': 'str'  # Munki ManagedItems must include the type of item: ManagedInstall, ManagedUninstall, OptionalInstall, etc.
-                ...
-            }
-    """
 
 
 def get_managed_install_report():
