@@ -35,8 +35,7 @@ def main():
 
     # TODO: Pull any histories that are sitting, waiting to be delivered to Sal in the
     # checkin_results and add onto them rather than start from scratch.
-    # TODO: Should we make this TZ aware?
-    now = datetime.datetime.utcnow().isoformat()
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
     # Process managed items and update histories.
     munki_submission['managed_items'] = {}
     munki_submission['update_history'] = []
