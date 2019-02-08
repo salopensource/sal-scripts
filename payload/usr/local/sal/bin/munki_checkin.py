@@ -75,7 +75,9 @@ def main():
             history['update_type'] = 'apple' if item.get('applesus') else 'third_party'
             history['version'] = item.get('version', '0')
             history['status'] = 'error' if item.get('status') != 0 else result_type
-            history['recorded'] = pytz.timezone('UTC').localize(item['time'])
+            # Munki puts a UTC time in, but python drops the TZ info.
+            # Convert to the expected submission format of ISO in UTC.
+            history['recorded'] = item['time'].isoformat() + 'Z'
             munki_submission['update_history'].append(history)
 
 
