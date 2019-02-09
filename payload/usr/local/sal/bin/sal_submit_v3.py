@@ -33,19 +33,11 @@ def main():
     if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
-    submission = {}
-
     utils.run_scripts(CHECKIN_MODULES_DIR, sys.argv[1])
+    submission = utils.get_checkin_results()
 
-    # TODO: Build Munki section
-    # TODO: Build Sal section
-
-    # puppet_version = puppet_vers()
-    # if puppet_version != "" and puppet_version is not None:
-    #     report['Puppet_Version'] = puppet_version
-    # puppet_report = get_puppet_report()
-    # if puppet_report != {}:
-    #     report['Puppet'] = puppet_report
+    server_url, name_type, bu_key = utils.get_server_prefs()
+    send_checkin(server_url, copy.copy(submission), report)
 
     # plugin_results_path = '/usr/local/sal/plugin_results.plist'
     # try:
@@ -55,46 +47,19 @@ def main():
     #     if os.path.exists(plugin_results_path):
     #         os.remove(plugin_results_path)
 
-    # insert_name = False
-    # report['Facter'] = get_facter_report()
-
-    # if report['Facter']:
-    #     insert_name = True
-
-    # if utils.pref('GetGrains'):
-    #     grains = get_grain_report(insert_name)
-    #     report['Facter'].update(grains)
-    #     insert_name = True  # set in case ohai is needed as well
-    # if utils.pref('GetOhai'):
-    #     if utils.pref('OhaiClientConfigPath'):
-    #         clientrbpath = utils.pref('OhaiClientConfigPath')
-    #     else:
-    #         clientrbpath = '/private/etc/chef/client.rb'
-    #     ohais = get_ohai_report(insert_name, clientrbpath)
-    #     report['Facter'].update(ohais)
-
-    # report['os_family'] = 'Darwin'
-
-    server_url, name_type, bu_key = utils.get_server_prefs()
-    # TODO: Move to machine module
-    # net_config = SCDynamicStoreCreate(None, "net", None, None)
-    # name = get_machine_name(net_config, name_type)
-    # run_uuid = uuid.uuid4()
-    # submission = get_data(serial, bu_key, name, run_uuid)
-
     # Shallow copy the submission dict to reuse common values and avoid
     # wasting bandwidth by sending unrelated data. (Alternately, we
     # could `del submission[some_key]`).
     # TODO: This isn't right at all. Just left uncommented.
-    send_checkin(server_url, copy.copy(submission), report)
+    # send_checkin(server_url, copy.copy(submission), report)
     # Only perform these when a user isn't running MSC manually to speed up the
     # run
     # TODO: These need to be updated for the new submission format
-    if runtype != 'manual':
-        send_hashed(server_url, copy.copy(submission))
-        send_install(server_url, copy.copy(submission))
-        send_catalogs(server_url, copy.copy(submission))
-        send_profiles(server_url, copy.copy(submission))
+    # if runtype != 'manual':
+    #     send_hashed(server_url, copy.copy(submission))
+    #     send_install(server_url, copy.copy(submission))
+    #     send_catalogs(server_url, copy.copy(submission))
+    #     send_profiles(server_url, copy.copy(submission))
 
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
@@ -132,8 +97,7 @@ def send_checkin(server_url, checkin_data, report):
 
 
 def send_report(url, report):
-    encoded_data = urllib.urlencode(report)
-    stdout, stderr = utils.curl(url, encoded_data)
+    stdout, stderr = utils.curl(url, json_data=utils.RESULTS_PATH)
     if stderr:
         munkicommon.display_debug2(stderr)
     stdout_list = stdout.split("\n")

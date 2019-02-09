@@ -145,7 +145,7 @@ def check_script_running(scriptname):
     return 0
 
 
-def curl(url, data=None):
+def curl(url, data=None, json_path=None):
     cmd = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
 
     # Use a PEM format certificate file to verify the peer. This is
@@ -173,15 +173,20 @@ def curl(url, data=None):
     max_time = '8' if data else '4'
     cmd += ['--max-time', max_time]
 
+    # TODO: Cleanup; these can both be specified. Also, we're only using JSON.
     if data:
         cmd += ['--data', data]
+    if json_path:
+        cmd += ['--header', 'Content-Type: application/json']
+        # Use the @ syntax for curl to open the file and do any required
+        # encoding for us.
+        cmd += ['--data', '@%s' % json_path]
 
     cmd += [url]
 
     task = subprocess.Popen(
         cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (stdout, stderr) = task.communicate()
-    return stdout, stderr
+    return task.communicate()
 
 
 def get_file_and_hash(path):
