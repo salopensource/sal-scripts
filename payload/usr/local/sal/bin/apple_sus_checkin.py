@@ -34,7 +34,7 @@ def main():
         history['version'] = version
         sus_submission['update_history'].append(history)
 
-    utils.add_checkin_results('apple_sus', sus_submission)
+    utils.set_checkin_results('apple_sus', sus_submission)
 
 
 def get_sus_install_report():

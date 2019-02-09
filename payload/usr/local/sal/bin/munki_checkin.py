@@ -81,7 +81,7 @@ def main():
             munki_submission['update_history'].append(history)
 
 
-    utils.add_checkin_results('munki', munki_submission)
+    utils.set_checkin_results('munki', munki_submission)
 
 
 def get_managed_install_report():

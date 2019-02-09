@@ -60,7 +60,7 @@ def main():
         machine_results['memory'] = hwinfo.get(MACHINE_KEYS['memory'][key_style])
         machine_results['memory_kb'] = process_memory(machine_results['memory'])
 
-    utils.add_checkin_results('machine', machine_results)
+    utils.set_checkin_results('machine', machine_results)
 
 
 def get_managed_install_report():

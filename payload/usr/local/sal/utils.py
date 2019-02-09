@@ -18,6 +18,7 @@ from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPref
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 VERSION = '3.0.0'
+RESULTS_PATH = '/usr/local/sal/checkin_results.json'
 
 
 class GurlError(Exception):
@@ -234,29 +235,42 @@ def add_plugin_results(plugin, data, historical=False):
     FoundationPlist.writePlist(plugin_results, plist_path)
 
 
-def add_checkin_results(module_name, data):
-    """Add data to the shared results JSON file.
+def get_checkin_results():
+    if os.path.exists(RESULTS_PATH):
+        with open(RESULTS_PATH) as results_handle:
+            results = json.load(results_handle)
+    else:
+        results = {}
 
-    This function creates the shared results file if it does not
-    already exist; otherwise, it adds the entry by module_name as a key.
+    return results
+
+
+def save_results(data):
+    """Replace all data in the results file."""
+    with open(RESULTS_PATH, 'w') as results_handle:
+        # Python2 json.dump encodes all unicode to UTF-8 for us.
+        json.dump(data, results_handle, default=serializer)
+
+
+def set_checkin_results(module_name, data):
+    """Set data by name to the shared results JSON file.
+
+    Existing data is overwritten.
 
     Args:
         module_name (str): Name of the management source returning data.
         data (dict): Dictionary of results.
     """
-    results_path = '/usr/local/sal/checkin_results.json'
-    if os.path.exists(results_path):
-        with open(results_path) as results_handle:
-            results = json.load(results_handle)
-    else:
-        results = {}
+    results = get_checkin_results()
 
     results[module_name] = data
-    with open(results_path, 'w') as results_handle:
-        json.dump(results, results_handle, default=serializer)
+    save_results(results)
 
 
 def serializer(obj):
+    """Func used by `json.dump`s default arg to serialize datetimes."""
+    # Through testing, it seems that this func is not used by json.dump
+    # for strings, so we don't have to handle them here.
     if isinstance(obj, datetime.datetime):
         obj = obj.isoformat() + 'Z'
     return obj
