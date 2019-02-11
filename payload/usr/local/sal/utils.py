@@ -293,6 +293,18 @@ def run_scripts(dir_path, cli_args):
             print "'{}' is not executable or has bad permissions".format(script)
 
 
+def run_checkin_modules(dir_path):
+    for script in os.listdir(dir_path):
+        script_stat = os.stat(os.path.join(dir_path, script))
+        if not script_stat.st_mode & stat.S_IWOTH:
+            try:
+                subprocess.call([os.path.join(dir_path, script)], stdin=None)
+            except (OSError, subprocess.CalledProcessError):
+                print "'{}' had errors during execution!".format(script)
+        else:
+            print "'{}' is not executable or has bad permissions".format(script)
+
+
 def get_server_prefs():
     """Get Sal preferences, bailing if required info is missing.
 

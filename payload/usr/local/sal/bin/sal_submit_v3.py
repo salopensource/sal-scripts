@@ -33,11 +33,11 @@ def main():
     if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
-    utils.run_scripts(CHECKIN_MODULES_DIR, sys.argv[1])
+    utils.run_checkin_modules(CHECKIN_MODULES_DIR)
     submission = utils.get_checkin_results()
 
     server_url, name_type, bu_key = utils.get_server_prefs()
-    send_checkin(server_url, copy.copy(submission), report)
+    send_checkin(server_url)
 
     # plugin_results_path = '/usr/local/sal/plugin_results.plist'
     # try:
@@ -90,14 +90,14 @@ def exit_if_not_root():
         sys.exit("Manually running this script requires sudo.")
 
 
-def send_checkin(server_url, checkin_data, report):
+def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
     munkicommon.display_debug2("Checkin Response:")
-    send_report(checkinurl, checkin_data)
+    send_report(checkinurl)
 
 
-def send_report(url, report):
-    stdout, stderr = utils.curl(url, json_data=utils.RESULTS_PATH)
+def send_report(url):
+    stdout, stderr = utils.curl(url, json_path=utils.RESULTS_PATH)
     if stderr:
         munkicommon.display_debug2(stderr)
     stdout_list = stdout.split("\n")
