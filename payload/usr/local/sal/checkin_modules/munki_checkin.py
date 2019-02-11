@@ -3,12 +3,10 @@
 
 import datetime
 import os
-import plistlib
 import sys
-from xml.parsers.expat import ExpatError
 
 sys.path.append('/usr/local/munki')
-from munkilib import munkicommon
+from munkilib import FoundationPlist, munkicommon
 sys.path.append('/usr/local/sal')
 import utils
 
@@ -81,7 +79,6 @@ def main():
             history['recorded'] = item['time'].isoformat() + 'Z'
             munki_submission['update_history'].append(history)
 
-
     utils.set_checkin_results('munki', munki_submission)
 
 
@@ -99,14 +96,14 @@ def get_managed_install_report():
     managed_install_report = os.path.join(managed_install_dir, 'ManagedInstallReport.plist')
 
     try:
-        munki_report = plistlib.readPlist(managed_install_report)
-    except (IOError, ExpatError):
+        munki_report = FoundationPlist.readPlist(managed_install_report)
+    except (IOError, FoundationPlist.NSPropertyListSerializationException):
         munki_report = {}
 
     if 'MachineInfo' not in munki_report:
         munki_report['MachineInfo'] = {}
 
-    return munki_report
+    return utils.unobjctify(munki_report)
 
 
 if __name__ == "__main__":

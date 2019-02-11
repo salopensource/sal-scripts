@@ -13,7 +13,8 @@ import time
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
-                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate)
+                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
+                        NSDictionary, NSData)
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
@@ -325,5 +326,23 @@ def get_server_prefs():
     name_type = pref('NameType', default='ComputerName')
 
     return required_prefs["server_url"], name_type, required_prefs["key"]
+
+
+def unobjctify(plist_data):
+    """Recursively convert pyobjc types to native python"""
+    if isinstance(plist_data, NSArray):
+        return [unobjctify(i) for i in plist_data]
+    elif isinstance(plist_data, NSDictionary):
+        return {k: unobjctify(v) for k, v in plist_data.items()}
+    elif isinstance(plist_data, NSData):
+        return u'<RAW DATA>'
+    elif isinstance(plist_data, NSDate):
+        # NSDate.description is in UTC, so drop the offset and we'll
+        # add it back in when serializing to JSON.
+        date_as_iso_string = plist_data.description().rsplit(' ', 1)[0]
+        return datetime.datetime.strptime(date_as_iso_string, '%Y-%m-%d %H:%M:%S')
+    else:
+        # bools, floats, and ints seem to be covered.
+        return plist_data
 
 

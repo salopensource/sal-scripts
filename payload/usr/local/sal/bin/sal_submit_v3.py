@@ -13,7 +13,6 @@ import subprocess
 import sys
 import time
 
-from Foundation import NSArray, NSDictionary, NSData, NSDate
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
 sys.path.append('/usr/local/munki')
@@ -150,7 +149,7 @@ def get_plugin_results(plugin_results_plist):
             return result
         munkicommon.display_debug2('External data plist:')
 
-        results = unobjctify(plist_data)
+        results = utils.unobjctify(plist_data)
 
         # TODO: This will fail without a serializer
         # munkicommon.display_debug2(json.dumps(result, indent=4))
@@ -158,18 +157,6 @@ def get_plugin_results(plugin_results_plist):
         munkicommon.display_debug2('No external data plist found.')
 
     return result
-
-
-def unobjctify(plist_data):
-    if isinstance(plist_data, NSArray):
-        return [unobjctify(i) for i in plist_data]
-    elif isinstance(plist_data, NSDictionary):
-        return {k: unobjctify(v) for k, v in plist_data.items()}
-    elif isinstance(plist_data, NSData):
-        return u'<RAW DATA>'
-    else:
-        # NSDate, bools, floats, and ints seem to be covered.
-        return plist_data
 
 
 if __name__ == "__main__":
