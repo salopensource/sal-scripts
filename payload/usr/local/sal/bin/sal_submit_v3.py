@@ -13,6 +13,7 @@ import subprocess
 import sys
 import time
 
+from Foundation import NSArray, NSDictionary, NSData, NSDate
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
 sys.path.append('/usr/local/munki')
@@ -37,16 +38,20 @@ def main():
     utils.run_checkin_modules(CHECKIN_MODULES_DIR)
     submission = utils.get_checkin_results()
 
+    plugin_results_path = '/usr/local/sal/plugin_results.plist'
+    runtype = get_runtype(submission)
+    try:
+        run_external_scripts(runtype)
+        submission['plugin_results'] = get_plugin_results(plugin_results_path)
+    finally:
+        pass
+        # if os.path.exists(plugin_results_path):
+        #     os.remove(plugin_results_path)
+    utils.save_results(submission)
+
     server_url, name_type, bu_key = utils.get_server_prefs()
     send_checkin(server_url)
 
-    # plugin_results_path = '/usr/local/sal/plugin_results.plist'
-    # try:
-    #     run_external_scripts(runtype)
-    #     report['Plugin_Results'] = get_plugin_results(plugin_results_path)
-    # finally:
-    #     if os.path.exists(plugin_results_path):
-    #         os.remove(plugin_results_path)
 
     # Shallow copy the submission dict to reuse common values and avoid
     # wasting bandwidth by sending unrelated data. (Alternately, we
@@ -127,5 +132,45 @@ def run_external_scripts(runtype):
                 else:
                     msg = "'{}' is not executable! Skipping."
                     munkicommon.display_debug1(msg.format(script_path))
+
+
+def get_runtype(submission):
+    munki = submission.get('munki', {})
+    return munki['runtype']
+
+
+def get_plugin_results(plugin_results_plist):
+    """ Read external data plist if it exists and return a dict."""
+    result = []
+    if os.path.exists(plugin_results_plist):
+        try:
+            plist_data = FoundationPlist.readPlist(plugin_results_plist)
+        except FoundationPlistException:
+            munkicommon.display_debug2('Could not read external data plist.')
+            return result
+        munkicommon.display_debug2('External data plist:')
+
+        results = unobjctify(plist_data)
+
+        # TODO: This will fail without a serializer
+        # munkicommon.display_debug2(json.dumps(result, indent=4))
+    else:
+        munkicommon.display_debug2('No external data plist found.')
+
+    return result
+
+
+def unobjctify(plist_data):
+    if isinstance(plist_data, NSArray):
+        return [unobjctify(i) for i in plist_data]
+    elif isinstance(plist_data, NSDictionary):
+        return {k: unobjctify(v) for k, v in plist_data.items()}
+    elif isinstance(plist_data, NSData):
+        return u'<RAW DATA>'
+    else:
+        # NSDate, bools, floats, and ints seem to be covered.
+        return plist_data
+
+
 if __name__ == "__main__":
     main()

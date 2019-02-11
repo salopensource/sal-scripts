@@ -19,6 +19,7 @@ def main():
 
     munki_submission['munki_version'] = munki_report['MachineInfo'].get('munki_version')
     munki_submission['manifest'] = munki_report['ManifestName']
+    munki_submission['runtype'] = munki_report.get('RunType', 'custom')
 
     munki_submission['facts'] = {}
     for condition, value in munki_report['Conditions'].items():

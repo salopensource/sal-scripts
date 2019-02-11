@@ -13,7 +13,7 @@ import time
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
-                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray)
+                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate)
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
