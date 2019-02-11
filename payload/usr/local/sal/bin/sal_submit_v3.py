@@ -8,6 +8,7 @@ Coordinates running checkin modules and submitting their results to Sal.
 import json
 import os
 import optparse
+import stat
 import subprocess
 import sys
 import time
@@ -106,5 +107,25 @@ def send_report(url):
     return stdout, stderr
 
 
+def run_external_scripts(runtype):
+    external_scripts_dir = '/usr/local/sal/external_scripts'
+
+    if os.path.exists(external_scripts_dir):
+        for root, dirs, files in os.walk(external_scripts_dir, topdown=False):
+            for script in files:
+                script_path = os.path.join(root, script)
+
+                script_stat = os.stat(script_path)
+                executable = script_stat.st_mode & stat.S_IXUSR
+                if executable:
+                    try:
+                        subprocess.call(
+                            [script_path, runtype], stdin=None)
+                    except OSError:
+                        munkicommon.display_debug2(
+                            "Couldn't run {}".format(script_path))
+                else:
+                    msg = "'{}' is not executable! Skipping."
+                    munkicommon.display_debug1(msg.format(script_path))
 if __name__ == "__main__":
     main()
