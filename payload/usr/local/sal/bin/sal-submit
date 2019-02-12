@@ -1,120 +1,65 @@
 #!/usr/bin/python
-"""sal-postflight
+"""sal-submit
 
-Submits inventory to an instance of Sal
+Coordinates running checkin modules and submitting their results to Sal.
 """
 
 
-import base64
-import bz2
-import copy
-import hashlib
 import json
-import optparse
 import os
+import optparse
+import stat
 import subprocess
 import sys
 import tempfile
-import urllib
-import uuid
-import stat
-import random
 import time
-from pprint import pformat
 
-# pylint: disable=E0611
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
 sys.path.insert(0, '/usr/local/sal')
-import macmodelshelf
 import utils
-import yaml
 
 
-BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '2.1.3'
-
-# To resolve unicode write errors set our default encoding to utf8
-reload(sys)
-sys.setdefaultencoding('utf8')
+CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 
 
 def main():
     set_verbosity()
     exit_if_not_root()
-    other_sal_pid = utils.pythonScriptRunning('sal-submit')
-    if other_sal_pid:
+    if utils.python_script_running('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
-    
+
     time.sleep(1)
-    munki_pid = utils.pythonScriptRunning('managedsoftwareupdate')
-    if munki_pid:
+    if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
-    report = get_managed_install_report()
-    serial = report['MachineInfo'].get('serial_number')
-    if not serial:
-        sys.exit('Unable to get MachineInfo from ManagedInstallReport.plist. '
-                 'This is usually due to running Munki in Apple Software only '
-                 'mode.')
-    runtype = get_runtype(report)
-    report['MachineInfo']['SystemProfile'] = get_sys_profile()
-    friendly_model = get_friendly_model(serial)
-    if friendly_model:
-        report['MachineInfo']['machine_model_friendly'] = friendly_model
-    puppet_version = puppet_vers()
-    if puppet_version != "" and puppet_version is not None:
-        report['Puppet_Version'] = puppet_version
-    puppet_report = get_puppet_report()
-    if puppet_report != {}:
-        report['Puppet'] = puppet_report
+
+    utils.run_checkin_modules(CHECKIN_MODULES_DIR)
+
+    submission = utils.get_checkin_results()
+    runtype = get_runtype(submission)
+
     plugin_results_path = '/usr/local/sal/plugin_results.plist'
+    # TODO: Clean up error handling.
     try:
         run_external_scripts(runtype)
-        report['Plugin_Results'] = get_plugin_results(plugin_results_path)
+        plugin_results = get_plugin_results(plugin_results_path)
     finally:
         if os.path.exists(plugin_results_path):
             os.remove(plugin_results_path)
+    utils.set_checkin_results('plugin_results', plugin_results)
 
-    insert_name = False
-    report['Facter'] = get_facter_report()
+    server_url, _, machine_group_key = utils.get_server_prefs()
+    send_checkin(server_url)
 
-    if report['Facter']:
-        insert_name = True
-
-    if utils.pref('GetGrains'):
-        grains = get_grain_report(insert_name)
-        report['Facter'].update(grains)
-        insert_name = True  # set in case ohai is needed as well
-    if utils.pref('GetOhai'):
-        if utils.pref('OhaiClientConfigPath'):
-            clientrbpath = utils.pref('OhaiClientConfigPath')
-        else:
-            clientrbpath = '/private/etc/chef/client.rb'
-        ohais = get_ohai_report(insert_name, clientrbpath)
-        report['Facter'].update(ohais)
-
-    report['os_family'] = 'Darwin'
-
-    ServerURL, NameType, bu_key = get_server_prefs()
-    net_config = SCDynamicStoreCreate(None, "net", None, None)
-    name = get_machine_name(net_config, NameType)
-    run_uuid = uuid.uuid4()
-    submission = get_data(serial, bu_key, name, run_uuid)
-
-    # Shallow copy the submission dict to reuse common values and avoid
-    # wasting bandwidth by sending unrelated data. (Alternately, we
-    # could `del submission[some_key]`).
-    send_checkin(ServerURL, copy.copy(submission), report)
-    # Only perform these when a user isn't running MSC manually to speed up the
-    # run
+    # Speed up manual runs by skipping these potentially slow-running,
+    # and infrequently changing tasks.
     if runtype != 'manual':
-        send_hashed(ServerURL, copy.copy(submission))
-        send_install(ServerURL, copy.copy(submission))
-        send_catalogs(ServerURL, copy.copy(submission))
-        send_profiles(ServerURL, copy.copy(submission))
-    
+        send_inventory(server_url, submission['machine']['serial'])
+        send_catalogs(server_url, machine_group_key)
+        send_profiles(server_url, submission['machine']['serial'])
+
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
         os.remove(touchfile)
@@ -123,8 +68,7 @@ def main():
 def set_verbosity():
     """Set the verbosity based on options or munki verbosity level."""
     opts = get_options()
-    munkicommon.verbose = (
-        5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
+    munkicommon.verbose = (5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
 
 
 def get_options():
@@ -132,18 +76,10 @@ def get_options():
     usage = "%prog [options]"
     option_parser = optparse.OptionParser(usage=usage)
     option_parser.add_option(
-        "-d", "--debug", default=False, action="store_true",
-        help="Enable debug output.")
+        "-d", "--debug", default=False, action="store_true", help="Enable debug output.")
     # We have no arguments, so don't store the results.
     opts, _ = option_parser.parse_args()
     return opts
-
-
-def get_friendly_model(serial):
-    """Return friendly model name"""
-    model_code = macmodelshelf.model_code(serial)
-    model_name = macmodelshelf.model(model_code)
-    return model_name
 
 
 def exit_if_not_root():
@@ -153,427 +89,10 @@ def exit_if_not_root():
         sys.exit("Manually running this script requires sudo.")
 
 
-def get_server_prefs():
-    """Get Sal preferences, bailing if required info is missing.
-
-    Returns:
-        Tuple of (Server URL, NameType, and key (business unit key)
-    """
-    # Check for mandatory prefs and bail if any are missing.
-    required_prefs = {}
-    required_prefs["key"] = utils.pref('key')
-    required_prefs["ServerURL"] = utils.pref('ServerURL').rstrip('/')
-
-    for key, val in required_prefs.items():
-        if not val:
-            sys.exit('Required Sal preference "{}" is not set.'.format(key))
-
-    # Get optional preferences.
-    name_type = utils.pref('NameType') or 'ComputerName'
-
-    return (required_prefs["ServerURL"], name_type, required_prefs["key"])
-
-
-def get_managed_install_report():
-    """Return Munki ManagedInstallsReport.plist as a plist dict.
-
-    Returns:
-        ManagedInstalls report for last Munki run as a plist
-        dict, or an empty dict.
-    """
-    # Checks munki preferences to see where the install directory is set to.
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-
-    # set the paths based on munki's configuration.
-    managed_install_report = os.path.join(
-        managed_install_dir, 'ManagedInstallReport.plist')
-
-    munkicommon.display_debug2(
-        "Looking for munki's ManagedInstallReport.plist at {} ...".format(
-            managed_install_report))
-    try:
-        munki_report = FoundationPlist.readPlist(managed_install_report)
-    except FoundationPlist.FoundationPlistException:
-        munki_report = {}
-
-    if 'MachineInfo' not in munki_report:
-        munki_report['MachineInfo'] = {}
-
-    munkicommon.display_debug2('ManagedInstallReport.plist:')
-    munkicommon.display_debug2(format_plist(munki_report))
-
-    return munki_report
-
-
-def get_plugin_results(plugin_results_plist):
-    """ Read external data plist if it exists and return a dict."""
-    result = {}
-    if os.path.exists(plugin_results_plist):
-        try:
-            plist_data = FoundationPlist.readPlist(plugin_results_plist)
-            munkicommon.display_debug2('External data plist:')
-            munkicommon.display_debug2(format_plist(plist_data))
-            result = plist_data
-        except FoundationPlist.NSPropertyListSerializationException:
-            munkicommon.display_debug2('Could not read external data plist.')
-    else:
-        munkicommon.display_debug2('No external data plist found.')
-
-    return result
-
-
-def format_plist(plist):
-    """Format a plist as a string for debug output."""
-    # For now, just dump it.
-    return FoundationPlist.writePlistToString(plist)
-
-
-def get_sys_profile():
-    """Get sysprofiler info.
-
-    Returns:
-        System Profiler report for networking and hardware as a plist
-        dict, or an empty dict.
-    """
-    # Generate system profiler report for networking and hardware.
-    system_profile = {}
-    command = ['/usr/sbin/system_profiler', '-xml', 'SPNetworkDataType',
-               'SPHardwareDataType']
-    try:
-        stdout = subprocess.check_output(command)
-    except subprocess.CalledProcessError:
-        stdout = None
-
-    if stdout:
-        try:
-            system_profile = FoundationPlist.readPlistFromString(stdout)
-        except FoundationPlist.FoundationPlistException:
-            pass
-
-        munkicommon.display_debug2(
-            'System Profiler SPNetworkDataType and SPHardwareDataType:')
-        munkicommon.display_debug2(format_plist(system_profile))
-
-    return system_profile
-
-
-def puppet_vers():
-    """Return puppet version as a string or None if not installed."""
-    puppet_paths = (
-        '/opt/puppetlabs/bin/puppet',
-        '/usr/bin/puppet',
-        '/usr/local/bin/puppet')
-    puppet_path = None
-    for path in puppet_paths:
-        if os.path.exists(path):
-            puppet_path = path
-            break
-
-    puppet_version = ""
-    if puppet_path:
-        try:
-            command = [puppet_path, '--version']
-            puppet_version = subprocess.check_output(command).strip()
-        except subprocess.CalledProcessError as error:
-            munkicommon.display_debug2('Issue getting puppet version')
-            munkicommon.display_debug2(error.message)
-            puppet_version = "Not Found"
-
-    munkicommon.display_debug2('Puppet Version: {}'.format(puppet_version))
-
-    return puppet_version
-
-
-def get_puppet_report():
-    """Check puppet report path and parse yaml"""
-    puppet_reports = (
-        '/opt/puppetlabs/puppet/cache/state/last_run_summary.yaml',
-        '/var/lib/puppet/state/last_run_summary.yaml')
-    report_path = None
-    for path in puppet_reports:
-        if os.path.exists(path):
-            report_path = path
-            break
-
-    puppetreport = {}
-    if report_path:
-        try:
-            with open(report_path) as report:
-                puppetreport = yaml.load(report.read())
-        except yaml.parser.ParserError:
-            pass
-
-    # Convert python keyword None to string "None".
-    if puppetreport:
-        if puppetreport['version']['config'] is None:
-            puppetreport['version']['config'] = 'None'
-
-        munkicommon.display_debug2('Puppet Report:')
-        munkicommon.display_debug2(pformat(puppetreport))
-
-    return puppetreport
-
-
-def get_ohai_report(insert_name, clientrbpath):
-    report = None
-    ohai_path = '/opt/chef/bin/ohai'
-    ohai = dict()
-    new_ohai = dict()
-    if os.path.exists(ohai_path):
-        if os.path.exists(clientrbpath):
-            command = [ohai_path, '-c', clientrbpath]
-        else:
-            command = [ohai_path]
-        try:
-            report = subprocess.check_output(command)
-        except subprocess.CalledProcessError as error:
-            munkicommon.display_debug2('Issue getting ohai report:')
-            munkicommon.display_debug2(error.message)
-    if report:
-        try:
-            ohai = json.loads(report, object_pairs_hook=utils.dict_clean)
-        except:
-            pass
-    if ohai:
-        for key, value in ohai.items():
-            if insert_name:
-                key = '{0}=>{1}'.format('ohai', key)
-            new_ohai[key] = value
-    munkicommon.display_debug2('Ohai Output:')
-    munkicommon.display_debug2(pformat(ohai))
-
-    return hashrocket_flatten_dict(new_ohai)
-
-
-def get_facter_report():
-    """Check for facter and sal-specific custom facts"""
-    # Set the FACTERLIB environment variable if not already what we want
-    desired_facter = '/usr/local/sal/facter'
-    current_facterlib = os.environ.get('FACTERLIB')
-    facterflag = False
-    if current_facterlib:
-        if desired_facter not in current_facterlib:
-            # set the flag to true, we need to put it back
-            facterflag = True
-    os.environ['FACTERLIB'] = desired_facter
-
-    # if Facter is installed, perform a run
-    facter_paths = ('/opt/puppetlabs/bin/puppet', '/usr/bin/facter', '/usr/local/bin/facter')
-    facter_path = None
-    for path in facter_paths:
-        if os.path.exists(path):
-            facter_path = path
-            break
-
-    report = None
-    if facter_path == '/opt/puppetlabs/bin/puppet':
-        command = [facter_path, 'facts', '--render-as', 'json']
-    else:
-        command = [facter_path, '--puppet', '--json']
-
-    if facter_path:
-        try:
-            report = subprocess.check_output(command)
-        except subprocess.CalledProcessError as error:
-            munkicommon.display_debug2('Issue getting facter report:')
-            munkicommon.display_debug2(error.message)
-
-    facter = {}
-    if report:
-        try:
-            facter = json.loads(report, object_pairs_hook=utils.dict_clean)
-        except:
-            pass
-    if 'values' in facter:
-        facter = facter['values']
-    munkicommon.display_debug2('Facter Output:')
-    munkicommon.display_debug2(pformat(facter))
-
-    if facterflag:
-        # restore pre-run facterlib
-        os.environ['FACTERLIB'] = current_facterlib
-
-    return hashrocket_flatten_dict(facter)
-
-
-def get_grain_report(insert_name):
-    '''Get the grain report from salt-call'''
-    salt_path = '/opt/salt/bin/salt-call'
-    # if salt doesn't exist we can just return an empty dict
-    if not os.path.exists(salt_path):
-        munkicommon.display_debug2('Set to get Salt Grains but Salt isn\'t installed...')
-        return dict()
-    command = [salt_path, '--local', '--grains', '--out=json']
-    try:
-        grains_report = subprocess.check_output(command)
-    except subprocess.CalledProcessError as error:
-        munkicommon.display_debug2('Issue getting grain report...')
-        munkicommon.display_debug2(error.message)
-    grains = dict()
-    new_grains = dict()
-    if grains_report:
-        try:
-            grains = json.loads(grains_report, object_pairs_hook=utils.dict_clean)
-        except:
-            pass
-    if 'local' in grains:
-        grains = grains['local']
-    for key, value in grains.items():
-        if 'productname' in key:
-            # productname value has a weird format that breaks sal if sent.
-            continue
-        if insert_name:
-            key = '{0}=>{1}'.format('grain',key)
-        new_grains[key] = value
-    return hashrocket_flatten_dict(new_grains)
-
-
-def hashrocket_flatten_dict(input_dict):
-    """Flattens the output from Facter 3"""
-
-    result_dict = {}
-    for fact_name, fact_value in input_dict.items():
-        if type(fact_value) == dict:
-            # Need to recurse at this point
-            # pylint: disable=line-too-long
-            for new_key, new_value in hashrocket_flatten_dict(
-                    fact_value).items():
-                result_dict['=>'.join([fact_name, new_key])] = new_value
-        else:
-            result_dict[fact_name] = fact_value
-
-    return result_dict
-
-
-def get_machine_name(net_config, nametype):
-    """Return the ComputerName of this Mac."""
-    sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
-    if sys_info:
-        return sys_info.get(nametype, None)
-    else:
-        command = ['/usr/sbin/scutil', '--get', 'ComputerName']
-        task = subprocess.Popen(command, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
-        (stdout, stderr) = task.communicate()
-        name = stdout
-        return name
-
-
-def get_data(serial, bu_key, name, run_uuid):
-    """Build report object."""
-    data = {}
-    data['serial'] = serial.upper()
-    data['key'] = bu_key
-    data['name'] = name
-    data['disk_size'] = get_disk_size('/')
-    data['sal_version'] = VERSION
-    data['run_uuid'] = run_uuid
-    return data
-
-
-def get_runtype(report):
-    if 'RunType' in report:
-        return report['RunType']
-    else:
-        return 'custom'
-
-
-def get_disk_size(path='/'):
-    """Returns total disk size in KBytes.
-    Args:
-      path: str, optional, default '/'
-    Returns:
-      int, KBytes in total disk space
-    """
-    if path is None:
-        path = '/'
-    try:
-        st = os.statvfs(path)
-    except OSError, e:
-        munkicommon.display_error(
-            'Error getting disk space in %s: %s', path, str(e))
-        return 0
-    total = (st.f_blocks * st.f_frsize) / 1024
-    return int(total)
-
-
-def sub_format_plist(plist):
-    """Return a b64 encoded, bz2 compressed copy of report."""
-    try:
-        data = FoundationPlist.writePlistToString(plist)
-    except FoundationPlist.NSPropertyListSerializationException as error:
-        munkicommon.display_debug2(
-            "Error serializing generated report: {}".format(error.message))
-        data = ""
-
-    return sub_format(data)
-
-
-def sub_format(text):
-    """Return a b64 encoded, bz2 compressed copy of text."""
-    return base64.b64encode(bz2.compress(text))
-
-
-def send_report(url, report):
-    encoded_data = urllib.urlencode(report)
-    stdout, stderr = utils.curl(url, encoded_data)
-    if stderr:
-        munkicommon.display_debug2(stderr)
-    stdout_list = stdout.split("\n")
-    if "<h1>Page not found</h1>" not in stdout_list:
-        munkicommon.display_debug2(stdout)
-    return stdout, stderr
-
-
-def send_checkin(ServerURL, checkin_data, report):
-    checkinurl = os.path.join(ServerURL, 'checkin', '')
-    checkin_data['base64bz2report'] = sub_format_plist(report)
+def send_checkin(server_url):
+    checkinurl = os.path.join(server_url, 'checkin', '')
     munkicommon.display_debug2("Checkin Response:")
-    send_report(checkinurl, checkin_data)
-
-
-def send_hashed(ServerURL, hashed_data):
-    hashurl = os.path.join(
-        ServerURL, 'inventory/hash', hashed_data['serial'], '')
-    inventorysubmiturl = os.path.join(ServerURL, 'inventory/submit', '')
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-    inventoryplist = os.path.join(
-        managed_install_dir, 'ApplicationInventory.plist')
-    munkicommon.display_debug2(
-        'ApplicationInventory.plist Path: {}'.format(inventoryplist))
-    inventory, inventory_hash = utils.get_file_and_hash(inventoryplist)
-    if inventory:
-        serverhash = None
-        serverhash, stderr = utils.curl(hashurl)
-        if stderr:
-            return
-        if serverhash != inventory_hash:
-            hashed_data['base64bz2inventory'] = (
-                base64.b64encode(bz2.compress(inventory)))
-            munkicommon.display_debug2("Hashed Report Response:")
-            send_report(inventorysubmiturl, hashed_data)
-
-
-def send_install(ServerURL, install_data):
-    hash_url = os.path.join(
-        ServerURL,
-        'installlog/hash',
-        install_data["serial"],
-        '')
-    install_log_submit_url = os.path.join(ServerURL, 'installlog/submit', '')
-
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-    install_log = os.path.join(managed_install_dir, 'Logs', 'Install.log')
-    install_log_text, install_log_hash = utils.get_file_and_hash(install_log)
-
-    if install_log_text:
-        server_hash = None
-        server_hash, stderr = utils.curl(hash_url)
-        if server_hash != install_log_hash and not stderr:
-            install_data['base64bz2installlog'] = (
-                base64.b64encode(bz2.compress(install_log_text)))
-            munkicommon.display_debug2("Install.log Response:")
-            send_report(install_log_submit_url, install_data)
+    utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
 
 
 def run_external_scripts(runtype):
@@ -584,8 +103,8 @@ def run_external_scripts(runtype):
             for script in files:
                 script_path = os.path.join(root, script)
 
-                st = os.stat(script_path)
-                executable = st.st_mode & stat.S_IXUSR
+                script_stat = os.stat(script_path)
+                executable = script_stat.st_mode & stat.S_IXUSR
                 if executable:
                     try:
                         subprocess.call(
@@ -598,28 +117,58 @@ def run_external_scripts(runtype):
                     munkicommon.display_debug1(msg.format(script_path))
 
 
-def send_profiles(ServerURL, profile_data):
-    devnull = open(os.devnull, 'w')
-    profile_submit_url = os.path.join(ServerURL, 'profiles/submit', '')
-    temp_dir = tempfile.mkdtemp()
-    profile_out = os.path.join(temp_dir, 'profiles.plist')
-    cmd = ['/usr/bin/profiles', '-C', '-o', profile_out]
-    try:
-        subprocess.call(cmd, stdout=devnull)
-    except OSError:
-        munkicommon.display_debug2("Couldn't output profiles.")
-        return
+def get_runtype(submission):
+    munki = submission.get('munki', {})
+    return munki['runtype']
 
-    profiles, _ = utils.get_file_and_hash(profile_out)
-    os.remove(profile_out)
-    profile_data['base64bz2profiles'] = (
-                base64.b64encode(bz2.compress(profiles)))
-    munkicommon.display_debug2("Profiles Response:")
-    stdout, stderr = send_report(profile_submit_url, profile_data)
 
-def send_catalogs(ServerURL, catalog_data):
-    hashurl = os.path.join(ServerURL, 'catalog/hash', '')
-    catalogsubmiturl = os.path.join(ServerURL, 'catalog/submit', '')
+def get_plugin_results(plugin_results_plist):
+    """ Read external data plist if it exists and return a dict."""
+    result = []
+    if os.path.exists(plugin_results_plist):
+        try:
+            plist_data = FoundationPlist.readPlist(plugin_results_plist)
+        except FoundationPlistException:
+            munkicommon.display_debug2('Could not read external data plist.')
+            return result
+        munkicommon.display_debug2('External data plist:')
+
+        results = utils.unobjctify(plist_data)
+
+        # TODO: This will fail without a serializer
+        # munkicommon.display_debug2(json.dumps(result, indent=4))
+    else:
+        munkicommon.display_debug2('No external data plist found.')
+
+    return result
+
+
+# TODO: REFACTOR!
+def send_inventory(server_url, serial):
+    hash_url = os.path.join(server_url, 'inventory/hash', serial, '')
+    inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')
+
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    inventory_plist = os.path.join(managed_install_dir, 'ApplicationInventory.plist')
+    munkicommon.display_debug2('ApplicationInventory.plist Path: {}'.format(inventory_plist))
+
+    inventory, inventory_hash = utils.get_file_and_hash(inventory_plist)
+    if inventory:
+        serverhash = None
+        serverhash, stderr = utils.curl(hash_url)
+        if stderr:
+            return
+        if serverhash != inventory_hash:
+            inventory_submission = {
+                'serial': serial,
+                'base64bz2inventory': utils.submission_encode(inventory)}
+            munkicommon.display_debug2("Hashed Report Response:")
+            utils.send_report(inventory_submit_url, form_data=inventory_submission)
+
+
+def send_catalogs(server_url, machine_group_key):
+    hash_url = os.path.join(server_url, 'catalog/hash', '')
+    catalog_submit_url = os.path.join(server_url, 'catalog/submit', '')
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
     catalog_dir = os.path.join(managed_install_dir, 'catalogs')
 
@@ -633,38 +182,60 @@ def send_catalogs(ServerURL, catalog_data):
 
         catalog_check_plist = FoundationPlist.writePlistToString(check_list)
 
-    hash_submission = copy.copy(catalog_data)
-    hash_submission['catalogs'] = sub_format(catalog_check_plist)
-    response, stderr = send_report(hashurl, hash_submission)
+    hash_submission = {
+        'key': machine_group_key,
+        'catalogs': utils.submission_encode(catalog_check_plist)}
+    response, stderr = utils.send_report(hash_url, form_data=hash_submission)
 
-    # Add remote_hashes to data structure.
-    try:
-        remote_data = FoundationPlist.readPlistFromString(response)
-    except FoundationPlist.NSPropertyListSerializationException:
-        remote_data = {}
     if stderr is not None:
-        for catalog in check_list:
-            send = True
-            for remote_item in remote_data:
-                if catalog['name'] == remote_item['name']:
-                    if catalog['sha256hash'] == remote_item['sha256hash']:
+        try:
+            remote_data = FoundationPlist.readPlistFromString(response)
+        except FoundationPlist.NSPropertyListSerializationException:
+            remote_data = {}
 
-                        send = False
-            if send is True:
-                contents, _ = utils.get_file_and_hash(os.path.join(
-                    catalog_dir, catalog['name']))
-                catalog_data['base64bz2catalog'] = sub_format(contents)
-                catalog_data['name'] = catalog['name']
-                catalog_data['sha256hash'] = catalog['sha256hash']
+        for catalog in check_list:
+            if catalog not in remote_data:
+                contents, _ = utils.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
+                catalog_submission = {
+                    'key': machine_group_key,
+                    'base64bz2catalog': utils.submission_encode(contents),
+                    'name': catalog['name'],
+                    'sha256hash': catalog['sha256hash']}
 
                 munkicommon.display_debug2(
                     "Submitting Catalog: {}".format(catalog['name']))
                 try:
-                    send_report(catalogsubmiturl, catalog_data)
+                    utils.send_report(catalog_submit_url, form_data=catalog_submission)
                 except OSError:
                     munkicommon.display_debug2(
                         "Error while submitting Catalog: {}".format(catalog['name']))
 
 
-if __name__ == '__main__':
+def send_profiles(server_url, serial):
+    profile_submit_url = os.path.join(server_url, 'profiles/submit', '')
+
+    temp_dir = tempfile.mkdtemp()
+    profile_out = os.path.join(temp_dir, 'profiles.plist')
+
+    cmd = ['/usr/bin/profiles', '-C', '-o', profile_out]
+    dev_null = open(os.devnull, 'w')
+    try:
+        subprocess.call(cmd, stdout=dev_null)
+    except OSError:
+        munkicommon.display_debug2("Couldn't output profiles.")
+        return
+
+    profiles, _ = utils.get_file_and_hash(profile_out)
+
+    os.remove(profile_out)
+
+    profile_submission = {
+        'serial': serial,
+        'base64bz2profiles': utils.submission_encode(profiles)}
+
+    munkicommon.display_debug2("Profiles Response:")
+    stdout, stderr = utils.send_report(profile_submit_url, form_data=profile_submission)
+
+
+if __name__ == "__main__":
     main()
