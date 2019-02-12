@@ -268,6 +268,10 @@ def get_checkin_results():
     return results
 
 
+def clean_results():
+    os.remove(RESULTS_PATH)
+
+
 def save_results(data):
     """Replace all data in the results file."""
     with open(RESULTS_PATH, 'w') as results_handle:

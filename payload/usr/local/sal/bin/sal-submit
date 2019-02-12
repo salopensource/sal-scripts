@@ -48,7 +48,10 @@ def main():
     utils.set_checkin_results('plugin_results', plugin_results)
 
     server_url, _, machine_group_key = utils.get_server_prefs()
-    send_checkin(server_url)
+    _, errors = send_checkin(server_url)
+
+    if not errors:
+        utils.clean_results()
 
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
@@ -89,7 +92,7 @@ def exit_if_not_root():
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
     munkicommon.display_debug2("Checkin Response:")
-    utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
+    return utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
 
 
 def run_external_scripts(runtype):
