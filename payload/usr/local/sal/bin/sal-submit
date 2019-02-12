@@ -35,17 +35,8 @@ def main():
     utils.run_checkin_modules(CHECKIN_MODULES_DIR)
 
     submission = utils.get_checkin_results()
-    runtype = get_runtype(submission)
-
-    plugin_results_path = '/usr/local/sal/plugin_results.plist'
-    # TODO: Clean up error handling.
-    try:
-        run_external_scripts(runtype)
-        plugin_results = get_plugin_results(plugin_results_path)
-    finally:
-        if os.path.exists(plugin_results_path):
-            os.remove(plugin_results_path)
-    utils.set_checkin_results('plugin_results', plugin_results)
+    run_type = get_run_type(submission)
+    run_plugins(run_type)
 
     server_url, _, machine_group_key = utils.get_server_prefs()
     _, errors = send_checkin(server_url)
@@ -55,7 +46,7 @@ def main():
 
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
-    if runtype != 'manual':
+    if run_type != 'manual':
         send_inventory(server_url, submission['machine']['serial'])
         send_catalogs(server_url, machine_group_key)
         send_profiles(server_url, submission['machine']['serial'])
@@ -89,13 +80,24 @@ def exit_if_not_root():
         sys.exit("Manually running this script requires sudo.")
 
 
+def run_plugins(run_type):
+    plugin_results_path = '/usr/local/sal/plugin_results.plist'
+    try:
+        run_external_scripts(run_type)
+        plugin_results = get_plugin_results(plugin_results_path)
+    finally:
+        if os.path.exists(plugin_results_path):
+            os.remove(plugin_results_path)
+    utils.set_checkin_results('plugin_results', plugin_results)
+
+
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
     munkicommon.display_debug2("Checkin Response:")
     return utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
 
 
-def run_external_scripts(runtype):
+def run_external_scripts(run_type):
     external_scripts_dir = '/usr/local/sal/external_scripts'
 
     if os.path.exists(external_scripts_dir):
@@ -108,7 +110,7 @@ def run_external_scripts(runtype):
                 if executable:
                     try:
                         subprocess.call(
-                            [script_path, runtype], stdin=None)
+                            [script_path, run_type], stdin=None)
                     except OSError:
                         munkicommon.display_debug2(
                             "Couldn't run {}".format(script_path))
@@ -117,7 +119,7 @@ def run_external_scripts(runtype):
                     munkicommon.display_debug1(msg.format(script_path))
 
 
-def get_runtype(submission):
+def get_run_type(submission):
     munki = submission.get('munki', {})
     return munki['runtype']
 
