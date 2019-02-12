@@ -12,7 +12,10 @@ import utils
 
 
 def main():
-    munki_submission = {}
+    # If we haven't successfully submitted to Sal, pull the existing
+    # munki section rather than start from scratch, as we want to
+    # keep any install/removal history that may be there.
+    munki_submission = utils.get_checkin_results().get('munki', {})
     munki_report = get_managed_install_report()
 
     munki_submission['munki_version'] = munki_report['MachineInfo'].get('munki_version')
@@ -37,7 +40,9 @@ def main():
     now = datetime.datetime.utcnow().isoformat() + 'Z'
     # Process managed items and update histories.
     munki_submission['managed_items'] = {}
-    munki_submission['update_history'] = []
+
+    if 'update_history' not in munki_submission:
+        munki_submission['update_history'] = []
 
     for item in munki_report.get('ManagedInstalls', []):
         name = item['name']
@@ -77,7 +82,10 @@ def main():
             # Munki puts a UTC time in, but python drops the TZ info.
             # Convert to the expected submission format of ISO in UTC.
             history['date'] = item['time'].isoformat() + 'Z'
-            munki_submission['update_history'].append(history)
+            # Only add if there isn't already an identical one waiting
+            # to be sent.
+            if history not in munki_submission['update_history']:
+                munki_submission['update_history'].append(history)
 
     utils.set_checkin_results('munki', munki_submission)
 
