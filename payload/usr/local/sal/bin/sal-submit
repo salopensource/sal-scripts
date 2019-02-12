@@ -5,7 +5,6 @@ Coordinates running checkin modules and submitting their results to Sal.
 """
 
 
-import json
 import os
 import optparse
 import stat
@@ -13,8 +12,6 @@ import subprocess
 import sys
 import tempfile
 import time
-
-from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
 
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
@@ -99,7 +96,7 @@ def run_external_scripts(runtype):
     external_scripts_dir = '/usr/local/sal/external_scripts'
 
     if os.path.exists(external_scripts_dir):
-        for root, dirs, files in os.walk(external_scripts_dir, topdown=False):
+        for root, _, files in os.walk(external_scripts_dir, topdown=False):
             for script in files:
                 script_path = os.path.join(root, script)
 
@@ -128,7 +125,7 @@ def get_plugin_results(plugin_results_plist):
     if os.path.exists(plugin_results_plist):
         try:
             plist_data = FoundationPlist.readPlist(plugin_results_plist)
-        except FoundationPlistException:
+        except FoundationPlist.FoundationPlistException:
             munkicommon.display_debug2('Could not read external data plist.')
             return result
         munkicommon.display_debug2('External data plist:')
@@ -140,7 +137,7 @@ def get_plugin_results(plugin_results_plist):
     else:
         munkicommon.display_debug2('No external data plist found.')
 
-    return result
+    return results
 
 
 # TODO: REFACTOR!
@@ -174,10 +171,10 @@ def send_catalogs(server_url, machine_group_key):
 
     check_list = []
     if os.path.exists(catalog_dir):
-        for file in os.listdir(catalog_dir):
+        for catalog_file in os.listdir(catalog_dir):
             # don't operate on hidden files (.DS_Store etc)
-            if not file.startswith('.'):
-                _, catalog_hash = utils.get_file_and_hash(file)
+            if not catalog_file.startswith('.'):
+                _, catalog_hash = utils.get_file_and_hash(catalog_file)
                 check_list.append({'name': file, 'sha256hash': catalog_hash})
 
         catalog_check_plist = FoundationPlist.writePlistToString(check_list)
@@ -234,7 +231,7 @@ def send_profiles(server_url, serial):
         'base64bz2profiles': utils.submission_encode(profiles)}
 
     munkicommon.display_debug2("Profiles Response:")
-    stdout, stderr = utils.send_report(profile_submit_url, form_data=profile_submission)
+    utils.send_report(profile_submit_url, form_data=profile_submission)
 
 
 if __name__ == "__main__":

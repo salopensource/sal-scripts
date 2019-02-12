@@ -187,10 +187,7 @@ def curl(url, data=None, json_path=None):
 
     cmd.append(url)
 
-    try:
-        task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except:
-        import pdb; pdb.set_trace()
+    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return task.communicate()
 
 
@@ -361,9 +358,8 @@ def unobjctify(plist_data):
         # add it back in when serializing to JSON.
         date_as_iso_string = plist_data.description().rsplit(' ', 1)[0]
         return datetime.datetime.strptime(date_as_iso_string, '%Y-%m-%d %H:%M:%S')
-    else:
-        # bools, floats, and ints seem to be covered.
-        return plist_data
+    # bools, floats, and ints seem to be covered.
+    return plist_data
 
 
 def submission_encode(text):
