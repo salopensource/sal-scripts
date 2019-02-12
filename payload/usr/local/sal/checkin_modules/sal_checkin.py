@@ -10,9 +10,6 @@ import utils
 def main():
     _, _, bu_key = utils.get_server_prefs()
     sal_submission = {'key': bu_key, 'sal_version': utils.sal_version()}
-    # TODO: CLean up; this is handled by a completely separate tool.
-    # 'broken_client': bool
-
     utils.set_checkin_results('sal', sal_submission)
 
 

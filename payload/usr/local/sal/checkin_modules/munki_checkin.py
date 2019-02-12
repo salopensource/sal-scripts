@@ -35,8 +35,6 @@ def main():
         for msg in munki_report[key]:
             munki_submission['messages'].append({'message_type': key, 'message': msg})
 
-    # TODO: Pull any histories that are sitting, waiting to be delivered to Sal in the
-    # checkin_results and add onto them rather than start from scratch.
     now = datetime.datetime.utcnow().isoformat() + 'Z'
     # Process managed items and update histories.
     munki_submission['managed_items'] = {}

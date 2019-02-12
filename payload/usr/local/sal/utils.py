@@ -298,7 +298,6 @@ def get_server_prefs():
     """
     # Check for mandatory prefs and bail if any are missing.
     required_prefs = {
-        # TODO: Is this really required?
         'key': pref('key'),
         'server_url': pref('ServerURL').rstrip('/')}
 
