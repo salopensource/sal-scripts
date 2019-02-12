@@ -303,24 +303,15 @@ def serializer(obj):
     return obj
 
 
-def run_scripts(dir_path, cli_args):
+def run_scripts(dir_path, cli_args=None):
     for script in os.listdir(dir_path):
         script_stat = os.stat(os.path.join(dir_path, script))
         if not script_stat.st_mode & stat.S_IWOTH:
+            cmd = [os.path.join(dir_path, script)]
+            if cli_args:
+                cmd.append(cli_args)
             try:
-                subprocess.call([os.path.join(dir_path, script), cli_args], stdin=None)
-            except (OSError, subprocess.CalledProcessError):
-                print "'{}' had errors during execution!".format(script)
-        else:
-            print "'{}' is not executable or has bad permissions".format(script)
-
-
-def run_checkin_modules(dir_path):
-    for script in os.listdir(dir_path):
-        script_stat = os.stat(os.path.join(dir_path, script))
-        if not script_stat.st_mode & stat.S_IWOTH:
-            try:
-                subprocess.call([os.path.join(dir_path, script)], stdin=None)
+                subprocess.call(cmd, stdin=None)
             except (OSError, subprocess.CalledProcessError):
                 print "'{}' had errors during execution!".format(script)
         else:

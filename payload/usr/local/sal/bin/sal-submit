@@ -27,12 +27,11 @@ def main():
     exit_if_not_root()
     if utils.python_script_running('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
-
     time.sleep(1)
     if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
-    utils.run_checkin_modules(CHECKIN_MODULES_DIR)
+    utils.run_scripts(CHECKIN_MODULES_DIR)
 
     submission = utils.get_checkin_results()
     run_type = get_run_type(submission)
