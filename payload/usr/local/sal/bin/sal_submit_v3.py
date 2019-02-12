@@ -35,34 +35,25 @@ def main():
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
     utils.run_checkin_modules(CHECKIN_MODULES_DIR)
+
     submission = utils.get_checkin_results()
+    runtype = get_runtype(submission)
 
     plugin_results_path = '/usr/local/sal/plugin_results.plist'
-    runtype = get_runtype(submission)
+    # TODO: Clean up error handling.
     try:
         run_external_scripts(runtype)
-        submission['plugin_results'] = get_plugin_results(plugin_results_path)
+        plugin_results = get_plugin_results(plugin_results_path)
     finally:
-        pass
-        # if os.path.exists(plugin_results_path):
-        #     os.remove(plugin_results_path)
-    utils.save_results(submission)
+        if os.path.exists(plugin_results_path):
+            os.remove(plugin_results_path)
+    utils.set_checkin_results('plugin_results', plugin_results)
 
     server_url, name_type, bu_key = utils.get_server_prefs()
     send_checkin(server_url)
 
-
-    # Shallow copy the submission dict to reuse common values and avoid
-    # wasting bandwidth by sending unrelated data. (Alternately, we
-    # could `del submission[some_key]`).
-    # TODO: This isn't right at all. Just left uncommented.
-    # send_checkin(server_url, copy.copy(submission), report)
-    # Only perform these when a user isn't running MSC manually to speed up the
-    # run
-    # TODO: These need to be updated for the new submission format
     # if runtype != 'manual':
     #     send_hashed(server_url, copy.copy(submission))
-    #     send_install(server_url, copy.copy(submission))
     #     send_catalogs(server_url, copy.copy(submission))
     #     send_profiles(server_url, copy.copy(submission))
 
