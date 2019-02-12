@@ -175,7 +175,7 @@ def send_catalogs(server_url, machine_group_key):
             # don't operate on hidden files (.DS_Store etc)
             if not catalog_file.startswith('.'):
                 _, catalog_hash = utils.get_file_and_hash(catalog_file)
-                check_list.append({'name': file, 'sha256hash': catalog_hash})
+                check_list.append({'name': catalog_file, 'sha256hash': catalog_hash})
 
         catalog_check_plist = FoundationPlist.writePlistToString(check_list)
 
