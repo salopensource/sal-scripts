@@ -79,6 +79,11 @@ def exit_if_not_root():
         sys.exit("Manually running this script requires sudo.")
 
 
+def get_run_type(submission):
+    munki = submission.get('munki', {})
+    return munki['runtype']
+
+
 def run_plugins(run_type):
     plugin_results_path = '/usr/local/sal/plugin_results.plist'
     try:
@@ -88,12 +93,6 @@ def run_plugins(run_type):
         if os.path.exists(plugin_results_path):
             os.remove(plugin_results_path)
     utils.set_checkin_results('plugin_results', plugin_results)
-
-
-def send_checkin(server_url):
-    checkinurl = os.path.join(server_url, 'checkin', '')
-    munkicommon.display_debug2("Checkin Response:")
-    return utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
 
 
 def run_external_scripts(run_type):
@@ -118,11 +117,6 @@ def run_external_scripts(run_type):
                     munkicommon.display_debug1(msg.format(script_path))
 
 
-def get_run_type(submission):
-    munki = submission.get('munki', {})
-    return munki['runtype']
-
-
 def get_plugin_results(plugin_results_plist):
     """ Read external data plist if it exists and return a dict."""
     result = []
@@ -144,7 +138,12 @@ def get_plugin_results(plugin_results_plist):
     return results
 
 
-# TODO: REFACTOR!
+def send_checkin(server_url):
+    checkinurl = os.path.join(server_url, 'checkin', '')
+    munkicommon.display_debug2("Checkin Response:")
+    return utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
+
+
 def send_inventory(server_url, serial):
     hash_url = os.path.join(server_url, 'inventory/hash', serial, '')
     inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')

@@ -25,14 +25,6 @@ RESULTS_PATH = '/usr/local/sal/checkin_results.json'
 VERSION = '3.0.0'
 
 
-class GurlError(Exception):
-    pass
-
-
-class HTTPError(Exception):
-    pass
-
-
 def sal_version():
     return VERSION
 
@@ -47,8 +39,7 @@ def set_pref(pref_name, pref_value):
     example)"""
     try:
         CFPreferencesSetValue(
-            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser,
-            kCFPreferencesCurrentHost)
+            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
         CFPreferencesAppSynchronize(BUNDLE_ID)
 
     except Exception:
@@ -215,25 +206,6 @@ def send_report(url, form_data=None, json_data=None, json_path=None):
         munkicommon.display_debug2(stdout)
 
     return stdout, stderr
-
-
-def dict_clean(items):
-    result = {}
-    skip_facts = pref('SkipFacts')
-    for key, value in items:
-        skip = False
-        if value is None:
-            value = 'None'
-
-        for skip_fact in skip_facts:
-            if key.startswith(skip_fact):
-                skip = True
-                break
-
-        if not skip:
-            result[key] = value
-
-    return result
 
 
 def add_plugin_results(plugin, data, historical=False):
