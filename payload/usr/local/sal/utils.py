@@ -21,8 +21,8 @@ from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPref
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '3.0.0'
 RESULTS_PATH = '/usr/local/sal/checkin_results.json'
+VERSION = '3.0.0'
 
 
 class GurlError(Exception):
