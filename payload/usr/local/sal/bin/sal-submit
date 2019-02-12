@@ -119,19 +119,18 @@ def run_external_scripts(run_type):
 
 def get_plugin_results(plugin_results_plist):
     """ Read external data plist if it exists and return a dict."""
-    result = []
+    results = []
     if os.path.exists(plugin_results_plist):
         try:
             plist_data = FoundationPlist.readPlist(plugin_results_plist)
         except FoundationPlist.FoundationPlistException:
             munkicommon.display_debug2('Could not read external data plist.')
-            return result
+            return results
         munkicommon.display_debug2('External data plist:')
 
         results = utils.unobjctify(plist_data)
 
-        # TODO: This will fail without a serializer
-        # munkicommon.display_debug2(json.dumps(result, indent=4))
+        munkicommon.display_debug2(json.dumps(results, indent=4, default=utils.serializer))
     else:
         munkicommon.display_debug2('No external data plist found.')
 
