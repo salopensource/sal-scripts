@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 
+import base64
+import bz2
 import datetime
 import hashlib
 import json
@@ -9,9 +11,10 @@ import stat
 import subprocess
 import sys
 import time
+import urllib
 
 sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist
+from munkilib import FoundationPlist, munkicommon
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
                         CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
                         NSDictionary, NSData)
@@ -174,19 +177,20 @@ def curl(url, data=None, json_path=None):
     max_time = '8' if data else '4'
     cmd += ['--max-time', max_time]
 
-    # TODO: Cleanup; these can both be specified. Also, we're only using JSON.
     if data:
         cmd += ['--data', data]
-    if json_path:
+    elif json_path:
         cmd += ['--header', 'Content-Type: application/json']
         # Use the @ syntax for curl to open the file and do any required
         # encoding for us.
         cmd += ['--data', '@%s' % json_path]
 
-    cmd += [url]
+    cmd.append(url)
 
-    task = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except:
+        import pdb; pdb.set_trace()
     return task.communicate()
 
 
@@ -197,7 +201,23 @@ def get_file_and_hash(path):
         with open(path) as ifile:
             text = ifile.read()
 
-    return (text, hashlib.sha256(text).hexdigest())
+    return text, hashlib.sha256(text).hexdigest()
+
+
+def send_report(url, form_data=None, json_data=None, json_path=None):
+    if form_data:
+        stdout, stderr = curl(url, data=urllib.urlencode(form_data))
+    elif json_data:
+        raise NotImplementedError
+    elif json_path:
+        stdout, stderr = curl(url, json_path=RESULTS_PATH)
+
+    if stderr:
+        munkicommon.display_debug2(stderr)
+    if "<h1>Page not found</h1>" not in stdout.split('\n'):
+        munkicommon.display_debug2(stdout)
+
+    return stdout, stderr
 
 
 def dict_clean(items):
@@ -346,3 +366,6 @@ def unobjctify(plist_data):
         return plist_data
 
 
+def submission_encode(text):
+    """Return a b64 encoded, bz2 compressed copy of text."""
+    return base64.b64encode(bz2.compress(text))

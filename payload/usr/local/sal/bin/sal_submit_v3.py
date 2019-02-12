@@ -11,6 +11,7 @@ import optparse
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 
 from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
@@ -49,13 +50,15 @@ def main():
             os.remove(plugin_results_path)
     utils.set_checkin_results('plugin_results', plugin_results)
 
-    server_url, name_type, bu_key = utils.get_server_prefs()
+    server_url, _, machine_group_key = utils.get_server_prefs()
     send_checkin(server_url)
 
-    # if runtype != 'manual':
-    #     send_hashed(server_url, copy.copy(submission))
-    #     send_catalogs(server_url, copy.copy(submission))
-    #     send_profiles(server_url, copy.copy(submission))
+    # Speed up manual runs by skipping these potentially slow-running,
+    # and infrequently changing tasks.
+    if runtype != 'manual':
+        send_inventory(server_url, submission['machine']['serial'])
+        send_catalogs(server_url, machine_group_key)
+        send_profiles(server_url, submission['machine']['serial'])
 
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
@@ -89,17 +92,7 @@ def exit_if_not_root():
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
     munkicommon.display_debug2("Checkin Response:")
-    send_report(checkinurl)
-
-
-def send_report(url):
-    stdout, stderr = utils.curl(url, json_path=utils.RESULTS_PATH)
-    if stderr:
-        munkicommon.display_debug2(stderr)
-    stdout_list = stdout.split("\n")
-    if "<h1>Page not found</h1>" not in stdout_list:
-        munkicommon.display_debug2(stdout)
-    return stdout, stderr
+    utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
 
 
 def run_external_scripts(runtype):
@@ -148,6 +141,100 @@ def get_plugin_results(plugin_results_plist):
         munkicommon.display_debug2('No external data plist found.')
 
     return result
+
+
+# TODO: REFACTOR!
+def send_inventory(server_url, serial):
+    hash_url = os.path.join(server_url, 'inventory/hash', serial, '')
+    inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')
+
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    inventory_plist = os.path.join(managed_install_dir, 'ApplicationInventory.plist')
+    munkicommon.display_debug2('ApplicationInventory.plist Path: {}'.format(inventory_plist))
+
+    inventory, inventory_hash = utils.get_file_and_hash(inventory_plist)
+    if inventory:
+        serverhash = None
+        serverhash, stderr = utils.curl(hash_url)
+        if stderr:
+            return
+        if serverhash != inventory_hash:
+            inventory_submission = {
+                'serial': serial,
+                'base64bz2inventory': utils.submission_encode(inventory)}
+            munkicommon.display_debug2("Hashed Report Response:")
+            utils.send_report(inventory_submit_url, form_data=inventory_submission)
+
+
+def send_catalogs(server_url, machine_group_key):
+    hash_url = os.path.join(server_url, 'catalog/hash', '')
+    catalog_submit_url = os.path.join(server_url, 'catalog/submit', '')
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    catalog_dir = os.path.join(managed_install_dir, 'catalogs')
+
+    check_list = []
+    if os.path.exists(catalog_dir):
+        for file in os.listdir(catalog_dir):
+            # don't operate on hidden files (.DS_Store etc)
+            if not file.startswith('.'):
+                _, catalog_hash = utils.get_file_and_hash(file)
+                check_list.append({'name': file, 'sha256hash': catalog_hash})
+
+        catalog_check_plist = FoundationPlist.writePlistToString(check_list)
+
+    hash_submission = {
+        'key': machine_group_key,
+        'catalogs': utils.submission_encode(catalog_check_plist)}
+    response, stderr = utils.send_report(hash_url, form_data=hash_submission)
+
+    if stderr is not None:
+        try:
+            remote_data = FoundationPlist.readPlistFromString(response)
+        except FoundationPlist.NSPropertyListSerializationException:
+            remote_data = {}
+
+        for catalog in check_list:
+            if catalog not in remote_data:
+                contents, _ = utils.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
+                catalog_submission = {
+                    'key': machine_group_key,
+                    'base64bz2catalog': utils.submission_encode(contents),
+                    'name': catalog['name'],
+                    'sha256hash': catalog['sha256hash']}
+
+                munkicommon.display_debug2(
+                    "Submitting Catalog: {}".format(catalog['name']))
+                try:
+                    utils.send_report(catalog_submit_url, form_data=catalog_submission)
+                except OSError:
+                    munkicommon.display_debug2(
+                        "Error while submitting Catalog: {}".format(catalog['name']))
+
+
+def send_profiles(server_url, serial):
+    profile_submit_url = os.path.join(server_url, 'profiles/submit', '')
+
+    temp_dir = tempfile.mkdtemp()
+    profile_out = os.path.join(temp_dir, 'profiles.plist')
+
+    cmd = ['/usr/bin/profiles', '-C', '-o', profile_out]
+    dev_null = open(os.devnull, 'w')
+    try:
+        subprocess.call(cmd, stdout=dev_null)
+    except OSError:
+        munkicommon.display_debug2("Couldn't output profiles.")
+        return
+
+    profiles, _ = utils.get_file_and_hash(profile_out)
+
+    os.remove(profile_out)
+
+    profile_submission = {
+        'serial': serial,
+        'base64bz2profiles': utils.submission_encode(profiles)}
+
+    munkicommon.display_debug2("Profiles Response:")
+    stdout, stderr = utils.send_report(profile_submit_url, form_data=profile_submission)
 
 
 if __name__ == "__main__":
