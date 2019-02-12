@@ -76,7 +76,7 @@ def main():
             history['status'] = 'error' if item.get('status') != 0 else result_type
             # Munki puts a UTC time in, but python drops the TZ info.
             # Convert to the expected submission format of ISO in UTC.
-            history['recorded'] = item['time'].isoformat() + 'Z'
+            history['date'] = item['time'].isoformat() + 'Z'
             munki_submission['update_history'].append(history)
 
     utils.set_checkin_results('munki', munki_submission)
