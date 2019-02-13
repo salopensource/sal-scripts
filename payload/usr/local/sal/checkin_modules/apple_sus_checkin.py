@@ -99,7 +99,7 @@ def get_sus_install_report():
 
 
 def get_sus_facts():
-    result = {}
+    result = {'checkin_module_version': __version__}
 
     cmd = ['softwareupdate', '--dump-state']
     try:

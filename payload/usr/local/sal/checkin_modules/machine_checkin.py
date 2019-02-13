@@ -24,7 +24,7 @@ __version__ = '1.0.0'
 
 
 def main():
-    machine_results = {}
+    machine_results = {'facts': {'checkin_module_version': __version__}}
     # Many machine properties have already been retrieved by Munki.
     # Use them.
     munki_report = get_managed_install_report()
