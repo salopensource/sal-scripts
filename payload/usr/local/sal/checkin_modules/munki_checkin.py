@@ -45,6 +45,8 @@ def main():
     if 'update_history' not in munki_submission:
         munki_submission['update_history'] = []
 
+    optional_manifest = get_optional_manifest()
+
     for item in munki_report.get('ManagedInstalls', []):
         name = item['name']
         submission_item = {}
@@ -54,6 +56,8 @@ def main():
         item.pop('name')
         item.pop('installed')
         item['type'] = 'ManagedInstalls'
+        self_serve = 'True' if name in optional_manifest.get('managed_installs', []) else 'False'
+        item['self_serve'] = self_serve
         submission_item['data'] = item
         munki_submission['managed_items'][name] = submission_item
 
@@ -63,6 +67,12 @@ def main():
             history['date'] = now
             history['version'] = item['version_to_install']
             munki_submission['update_history'].append(history)
+
+    for item in munki_report.get('managed_uninstalls_list', []):
+        submission_item = {'date_managed': now, 'status': 'ABSENT'}
+        self_serve = 'True' if name in optional_manifest.get('managed_uninstalls', []) else 'False'
+        submission_item['data'] = {'self_serve': self_serve, 'type': 'ManagedUninstalls'}
+        munki_submission['managed_items'][item] = submission_item
 
     # AppleUpdates section -> UpdateHistoryItem
     for item in munki_report.get('AppleUpdates', []):
@@ -113,6 +123,27 @@ def get_managed_install_report():
         munki_report['MachineInfo'] = {}
 
     return utils.unobjctify(munki_report)
+
+
+def get_optional_manifest():
+    """Return Munki SelfServeManifest as a plist dict.
+
+    Returns:
+        SelfServeManifest for last Munki run as a plist
+        dict, or an empty dict.
+    """
+    # Checks munki preferences to see where the install directory is set to.
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+
+    # set the paths based on munki's configuration.
+    optional_manifest_path = os.path.join(managed_install_dir, 'manifests/SelfServeManifest')
+
+    try:
+        optional_manifest = FoundationPlist.readPlist(optional_manifest_path)
+    except (IOError, FoundationPlist.NSPropertyListSerializationException):
+        optional_manifest = {}
+
+    return optional_manifest
 
 
 if __name__ == "__main__":
