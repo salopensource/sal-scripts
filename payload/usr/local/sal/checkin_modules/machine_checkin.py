@@ -40,8 +40,9 @@ def main():
     machine_results['operating_system'] = munki_report['MachineInfo']['os_vers']
     machine_results['hd_space'] = int(munki_report['AvailableDiskSpace'])
     machine_results['hd_total'] = get_disk_size()
-    machine_results['hd_percent'] = str(
-        machine_results['hd_space'] / float(machine_results['hd_total']))
+    machine_results['hd_percent'] = '{:.2f}'.format(
+        ((machine_results['hd_total'] - machine_results['hd_space'])
+         / float(machine_results['hd_total'])) * 100)
     machine_results['machine_model'] = munki_report['MachineInfo']['machine_model']
     friendly_model = get_friendly_model(serial)
     if friendly_model:
