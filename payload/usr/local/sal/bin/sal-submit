@@ -45,6 +45,8 @@ def main():
     run_type = get_run_type(submission)
     run_plugins(run_type)
 
+    remove_skipped_facts()
+
     server_url, _, machine_group_key = utils.get_server_prefs()
     if logging.getLogger().level <= 10:
         submission = utils.get_checkin_results()
@@ -153,6 +155,32 @@ def get_plugin_results(plugin_results_plist):
         logging.warning('No external data plist found.')
 
     return results
+
+
+def remove_skipped_facts():
+    skip_facts = utils.pref('SkipFacts')
+    if skip_facts:
+        update = False
+        submission = utils.get_checkin_results()
+
+        for results in submission.values():
+            if not isinstance(results, dict):
+                # Handle any non-dict keys like plugin_results
+                continue
+
+            removals = []
+            for fact in results.get('facts'):
+                if fact in skip_facts:
+                    removals.append(fact)
+
+            if removals:
+                update = True
+                for removal in removals:
+                    logging.debug("Removing fact: '%s'", removal)
+                    results['facts'].pop(removal)
+
+        if update:
+            utils.save_results(submission)
 
 
 def send_checkin(server_url):
