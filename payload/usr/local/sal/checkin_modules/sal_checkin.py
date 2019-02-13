@@ -7,6 +7,9 @@ sys.path.append('/usr/local/sal')
 import utils
 
 
+__version__ = '1.0.0'
+
+
 def main():
     _, _, bu_key = utils.get_server_prefs()
     sal_submission = {'key': bu_key, 'sal_version': utils.sal_version()}

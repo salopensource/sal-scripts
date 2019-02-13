@@ -11,6 +11,9 @@ sys.path.append('/usr/local/sal')
 import utils
 
 
+__version__ = '1.0.0'
+
+
 def main():
     sus_submission = {}
     sus_report = get_sus_install_report()

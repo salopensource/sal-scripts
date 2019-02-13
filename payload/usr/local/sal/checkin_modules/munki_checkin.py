@@ -11,6 +11,9 @@ sys.path.append('/usr/local/sal')
 import utils
 
 
+__version__ = '1.0.0'
+
+
 def main():
     # If we haven't successfully submitted to Sal, pull the existing
     # munki section rather than start from scratch, as we want to

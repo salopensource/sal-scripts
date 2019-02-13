@@ -20,6 +20,7 @@ MACHINE_KEYS = {
     'cpu_speed': {'old': 'CurrentProcessorSpeed', 'new': 'current_processor_speed'},
     'memory': {'old': 'PhysicalMemory', 'new': 'physical_memory'}}
 MEMORY_EXPONENTS = {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}
+__version__ = '1.0.0'
 
 
 def main():
