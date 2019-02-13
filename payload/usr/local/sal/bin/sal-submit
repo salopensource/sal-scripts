@@ -5,9 +5,10 @@ Coordinates running checkin modules and submitting their results to Sal.
 """
 
 
+import argparse
+import logging
 import json
 import os
-import optparse
 import stat
 import subprocess
 import sys
@@ -24,7 +25,10 @@ CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 
 
 def main():
-    set_verbosity()
+    logging.basicConfig(
+        level=get_log_level(), format='%(asctime)s %(levelname)s %(message)s')
+    logging.info("%s Version: %s", os.path.basename(__file__), utils.sal_version())
+
     exit_if_not_root()
     if utils.python_script_running('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
@@ -32,13 +36,20 @@ def main():
     if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
-    utils.run_scripts(CHECKIN_MODULES_DIR)
+    logging.info('Processing checkin modules...')
+    script_results = utils.run_scripts(CHECKIN_MODULES_DIR)
+    for message in script_results:
+        logging.debug(message)
 
     submission = utils.get_checkin_results()
     run_type = get_run_type(submission)
     run_plugins(run_type)
 
     server_url, _, machine_group_key = utils.get_server_prefs()
+    if logging.getLogger().level <= 10:
+        submission = utils.get_checkin_results()
+        logging.debug('Checkin submission:')
+        logging.debug(json.dumps(submission, indent=4, default=utils.serializer))
     _, errors = send_checkin(server_url)
 
     if not errors:
@@ -55,22 +66,28 @@ def main():
     if os.path.exists(touchfile):
         os.remove(touchfile)
 
-
-def set_verbosity():
-    """Set the verbosity based on options or munki verbosity level."""
-    opts = get_options()
-    munkicommon.verbose = (5 if opts.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
+    logging.info('Checkin complete.')
 
 
-def get_options():
+def get_log_level():
+    """Set the verbosity based on options."""
+    loglevel = logging.CRITICAL
+    args = get_args()
+    if args.debug:
+        loglevel = logging.DEBUG
+    elif args.verbose:
+        loglevel = logging.INFO
+    return loglevel
+
+
+def get_args():
     """Return commandline options."""
-    usage = "%prog [options]"
-    option_parser = optparse.OptionParser(usage=usage)
-    option_parser.add_option(
-        "-d", "--debug", default=False, action="store_true", help="Enable debug output.")
-    # We have no arguments, so don't store the results.
-    opts, _ = option_parser.parse_args()
-    return opts
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-d", "--debug", default=False, action="store_true", help="Enable full debug output.")
+    parser.add_argument(
+        "-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
+    return parser.parse_args()
 
 
 def exit_if_not_root():
@@ -86,6 +103,7 @@ def get_run_type(submission):
 
 
 def run_plugins(run_type):
+    logging.info('Processing plugins...')
     plugin_results_path = '/usr/local/sal/plugin_results.plist'
     try:
         run_external_scripts(run_type)
@@ -108,14 +126,15 @@ def run_external_scripts(run_type):
                 executable = script_stat.st_mode & stat.S_IXUSR
                 if executable:
                     try:
-                        subprocess.call(
-                            [script_path, run_type], stdin=None)
+                        subprocess.check_call(
+                            [script_path, run_type], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        logging.debug("%s ran successfuly.", script_path)
                     except OSError:
-                        munkicommon.display_debug2(
-                            "Couldn't run {}".format(script_path))
+                        logging.warning("Couldn't run %s", script_path)
+                    except subprocess.CalledProcessError:
+                        logging.warning("%s had errors during execution!", script_path)
                 else:
-                    msg = "'{}' is not executable! Skipping."
-                    munkicommon.display_debug1(msg.format(script_path))
+                    logging.warning("'%s' is not executable! Skipping.", script_path)
 
 
 def get_plugin_results(plugin_results_plist):
@@ -125,32 +144,40 @@ def get_plugin_results(plugin_results_plist):
         try:
             plist_data = FoundationPlist.readPlist(plugin_results_plist)
         except FoundationPlist.FoundationPlistException:
-            munkicommon.display_debug2('Could not read external data plist.')
+            logging.warning('Could not read external data plist.')
             return results
-        munkicommon.display_debug2('External data plist:')
 
         results = utils.unobjctify(plist_data)
 
-        munkicommon.display_debug2(json.dumps(results, indent=4, default=utils.serializer))
     else:
-        munkicommon.display_debug2('No external data plist found.')
+        logging.warning('No external data plist found.')
 
     return results
 
 
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
-    munkicommon.display_debug2("Checkin Response:")
-    return utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
+    logging.debug("Checkin Response:")
+    out, error = utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
+    log(out, error)
+    return out, error
+
+
+def log(out, error):
+    if out:
+        logging.debug(out.strip())
+    if error:
+        logging.debug(error.strip())
 
 
 def send_inventory(server_url, serial):
+    logging.info('Processing inventory...')
     hash_url = os.path.join(server_url, 'inventory/hash', serial, '')
     inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')
 
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
     inventory_plist = os.path.join(managed_install_dir, 'ApplicationInventory.plist')
-    munkicommon.display_debug2('ApplicationInventory.plist Path: {}'.format(inventory_plist))
+    logging.debug('ApplicationInventory.plist Path: %s', inventory_plist)
 
     inventory, inventory_hash = utils.get_file_and_hash(inventory_plist)
     if inventory:
@@ -158,15 +185,18 @@ def send_inventory(server_url, serial):
         serverhash, stderr = utils.curl(hash_url)
         if stderr:
             return
-        if serverhash != inventory_hash:
+        if serverhash != inventory_hash or True:
+            logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
                 'serial': serial,
                 'base64bz2inventory': utils.submission_encode(inventory)}
-            munkicommon.display_debug2("Hashed Report Response:")
-            utils.send_report(inventory_submit_url, form_data=inventory_submission)
+            logging.debug("Inventory report response:")
+            out, error = utils.send_report(inventory_submit_url, form_data=inventory_submission)
+            log(out, error)
 
 
 def send_catalogs(server_url, machine_group_key):
+    logging.info('Processing catalogs...')
     hash_url = os.path.join(server_url, 'catalog/hash', '')
     catalog_submit_url = os.path.join(server_url, 'catalog/submit', '')
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
@@ -202,16 +232,16 @@ def send_catalogs(server_url, machine_group_key):
                     'name': catalog['name'],
                     'sha256hash': catalog['sha256hash']}
 
-                munkicommon.display_debug2(
-                    "Submitting Catalog: {}".format(catalog['name']))
+                logging.debug("Submitting Catalog: %s", catalog['name'])
                 try:
-                    utils.send_report(catalog_submit_url, form_data=catalog_submission)
+                    out, error = utils.send_report(catalog_submit_url, form_data=catalog_submission)
+                    log(out, error)
                 except OSError:
-                    munkicommon.display_debug2(
-                        "Error while submitting Catalog: {}".format(catalog['name']))
+                    logging.warning("Error while submitting Catalog: %s", catalog['name'])
 
 
 def send_profiles(server_url, serial):
+    logging.info('Processing profiles...')
     profile_submit_url = os.path.join(server_url, 'profiles/submit', '')
 
     temp_dir = tempfile.mkdtemp()
@@ -222,7 +252,7 @@ def send_profiles(server_url, serial):
     try:
         subprocess.call(cmd, stdout=dev_null)
     except OSError:
-        munkicommon.display_debug2("Couldn't output profiles.")
+        logging.warning("Couldn't output profiles.")
         return
 
     profiles, _ = utils.get_file_and_hash(profile_out)
@@ -233,8 +263,9 @@ def send_profiles(server_url, serial):
         'serial': serial,
         'base64bz2profiles': utils.submission_encode(profiles)}
 
-    munkicommon.display_debug2("Profiles Response:")
-    utils.send_report(profile_submit_url, form_data=profile_submission)
+    logging.debug("Profiles Response:")
+    out, error = utils.send_report(profile_submit_url, form_data=profile_submission)
+    log(out, error)
 
 
 if __name__ == "__main__":

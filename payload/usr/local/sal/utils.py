@@ -14,7 +14,7 @@ import time
 import urllib
 
 sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist, munkicommon
+from munkilib import FoundationPlist
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
                         CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
                         NSDictionary, NSData)
@@ -200,11 +200,6 @@ def send_report(url, form_data=None, json_data=None, json_path=None):
     elif json_path:
         stdout, stderr = curl(url, json_path=RESULTS_PATH)
 
-    if stderr:
-        munkicommon.display_debug2(stderr)
-    if "<h1>Page not found</h1>" not in stdout.split('\n'):
-        munkicommon.display_debug2(stdout)
-
     return stdout, stderr
 
 
@@ -276,6 +271,7 @@ def serializer(obj):
 
 
 def run_scripts(dir_path, cli_args=None):
+    results = []
     for script in os.listdir(dir_path):
         script_stat = os.stat(os.path.join(dir_path, script))
         if not script_stat.st_mode & stat.S_IWOTH:
@@ -284,10 +280,12 @@ def run_scripts(dir_path, cli_args=None):
                 cmd.append(cli_args)
             try:
                 subprocess.call(cmd, stdin=None)
+                results.append("'{}' ran successfully".format(script))
             except (OSError, subprocess.CalledProcessError):
-                print "'{}' had errors during execution!".format(script)
+                results.append("'{}' had errors during execution!".format(script))
         else:
-            print "'{}' is not executable or has bad permissions".format(script)
+            results.append("'{}' is not executable or has bad permissions".format(script))
+    return results
 
 
 def get_server_prefs():
