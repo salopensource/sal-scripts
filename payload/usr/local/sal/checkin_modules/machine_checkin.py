@@ -1,92 +1,64 @@
 #!/usr/bin/python
 
 
-import os
 import subprocess
 import sys
 
-from SystemConfiguration import SCDynamicStoreCreate, SCDynamicStoreCopyValue
+from SystemConfiguration import (
+    SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
 sys.path.append('/usr/local/munki')
-from munkilib import munkicommon, FoundationPlist
+from munkilib import FoundationPlist
 sys.path.append('/usr/local/sal')
 import macmodelshelf
 import utils
 
 
-MACHINE_KEYS = {
-    'machine_model': {'old': 'MachineModel', 'new': 'machine_model'},
-    'cpu_type': {'old': 'CPUType', 'new': 'cpu_type'},
-    'cpu_speed': {'old': 'CurrentProcessorSpeed', 'new': 'current_processor_speed'},
-    'memory': {'old': 'PhysicalMemory', 'new': 'physical_memory'}}
 MEMORY_EXPONENTS = {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}
 __version__ = '1.0.0'
 
 
 def main():
     machine_results = {'facts': {'checkin_module_version': __version__}}
-    # Many machine properties have already been retrieved by Munki.
-    # Use them.
-    munki_report = get_managed_install_report()
-
-    serial = munki_report['MachineInfo'].get('serial_number')
-    if not serial:
-        sys.exit('Unable to get MachineInfo from ManagedInstallReport.plist. This is usually due '
-                 'to running Munki in Apple Software only mode.')
-    machine_results['serial'] = serial
     machine_results['hostname'] = get_hostname()
-    machine_results['console_user'] = munki_report['ConsoleUser']
     machine_results['os_family'] = 'Darwin'
-    machine_results['operating_system'] = munki_report['MachineInfo']['os_vers']
-    machine_results['hd_space'] = int(munki_report['AvailableDiskSpace'])
-    machine_results['hd_total'] = get_disk_size()
-    machine_results['hd_percent'] = '{:.2f}'.format(
-        ((machine_results['hd_total'] - machine_results['hd_space'])
-         / float(machine_results['hd_total'])) * 100)
-    machine_results['machine_model'] = munki_report['MachineInfo']['machine_model']
-    friendly_model = get_friendly_model(serial)
-    if friendly_model:
-        machine_results['machine_model_friendly'] = friendly_model
-
-    system_profile = get_sys_profile()
-    hwinfo = None
-    for profile in system_profile:
-        if profile['_dataType'] == 'SPHardwareDataType':
-            hwinfo = profile['_items'][0]
-            break
-
-    if hwinfo:
-        key_style = 'old' if 'MachineModel' in hwinfo else 'new'
-        machine_results['cpu_type'] = hwinfo.get(MACHINE_KEYS['cpu_type'][key_style])
-        machine_results['cpu_speed'] = hwinfo.get(MACHINE_KEYS['cpu_speed'][key_style])
-        machine_results['memory'] = hwinfo.get(MACHINE_KEYS['memory'][key_style])
-        machine_results['memory_kb'] = process_memory(machine_results['memory'])
-
+    machine_results['console_user'] = get_console_user()[0]
+    machine_results = process_system_profile(machine_results)
     utils.set_checkin_results('machine', machine_results)
 
 
-def get_managed_install_report():
-    """Return Munki ManagedInstallsReport.plist as a plist dict.
+def process_system_profile(machine_results):
+    system_profile = get_sys_profile()
 
-    Returns:
-        ManagedInstalls report for last Munki run as a plist
-        dict, or an empty dict.
-    """
-    # Checks munki preferences to see where the install directory is set to.
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+    if not system_profile:
+        # We can't continue if system_profiler dies.
+        return machine_results
 
-    # set the paths based on munki's configuration.
-    managed_install_report = os.path.join(managed_install_dir, 'ManagedInstallReport.plist')
+    machine_results['serial'] = system_profile['SPHardwareDataType'][0]['serial_number']
+    os_version = system_profile['SPSoftwareDataType'][0]['os_version'].split()[1]
+    machine_results['operating_system'] = os_version
+    machine_results['machine_model'] = system_profile['SPHardwareDataType'][0]['machine_model']
+    friendly_model = get_friendly_model(machine_results['serial'])
+    if friendly_model:
+        machine_results['machine_model_friendly'] = friendly_model
+    machine_results['cpu_type'] = system_profile['SPHardwareDataType'][0]['cpu_type']
+    machine_results['cpu_speed'] = (
+        system_profile['SPHardwareDataType'][0]['current_processor_speed'])
+    machine_results['memory'] = system_profile['SPHardwareDataType'][0]['physical_memory']
+    machine_results['memory_kb'] = process_memory(machine_results['memory'])
 
-    try:
-        munki_report = FoundationPlist.readPlist(managed_install_report)
-    except FoundationPlist.FoundationPlistException:
-        munki_report = {}
+    for device in system_profile['SPStorageDataType']:
+        if device['mount_point'] == '/':
+            # div by 1000.0 to
+            # a) Convert to Apple base 10 kilobytes
+            # b) Cast to python floats
+            machine_results['hd_space'] = device['free_space_in_bytes']
+            machine_results['hd_total'] = device['size_in_bytes']
+            # We want the % used, not of free space, so invert.
+            machine_results['hd_percent'] = '{:.2f}'.format(
+                abs(float(machine_results['hd_space']) / machine_results['hd_total'] - 1) * 100)
 
-    if 'MachineInfo' not in munki_report:
-        munki_report['MachineInfo'] = {}
-
-    return munki_report
+    return machine_results
 
 
 def get_hostname():
@@ -95,21 +67,13 @@ def get_hostname():
     return get_machine_name(net_config, name_type)
 
 
-def get_disk_size():
-    """Returns total disk size in KBytes.
 
-    Args:
-      path: str, optional, default '/'
-
-    Returns:
-      int, KBytes in total disk space
-    """
-    try:
-        stat = os.statvfs('/')
-    except OSError:
-        return 0
-    total = (stat.f_blocks * stat.f_frsize) / 1024
-    return int(total)
+def get_machine_name(net_config, nametype):
+    """Return the ComputerName of this Mac."""
+    sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
+    if sys_info:
+        return sys_info.get(nametype)
+    return subprocess.check_output(['/usr/sbin/scutil', '--get', 'ComputerName'])
 
 
 def get_friendly_model(serial):
@@ -122,44 +86,49 @@ def get_friendly_model(serial):
 def process_memory(amount):
     """Convert the amount of memory like '4 GB' to the size in kb as int"""
     try:
-        memkb = int(amount[:-3]) * \
-            1024 ** MEMORY_EXPONENTS[amount[-2:]]
+        memkb = int(amount[:-3]) * 1024 ** MEMORY_EXPONENTS[amount[-2:]]
     except ValueError:
-        memkb = int(float(amount[:-3])) * \
-            1024 ** MEMORY_EXPONENTS[amount[-2:]]
+        memkb = int(float(amount[:-3])) * 1024 ** MEMORY_EXPONENTS[amount[-2:]]
     return memkb
-
-
-def get_machine_name(net_config, nametype):
-    """Return the ComputerName of this Mac."""
-    sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
-    if sys_info:
-        return sys_info.get(nametype)
-    return subprocess.check_output(['/usr/sbin/scutil', '--get', 'ComputerName'])
 
 
 def get_sys_profile():
     """Get sysprofiler info.
 
     Returns:
-        System Profiler report for networking and hardware as a plist
-        dict, or an empty dict.
+        System Profiler report for networking, drives, and hardware as a
+        plist dict, or an empty dict.
     """
-    # Generate system profiler report for networking and hardware.
-    system_profile = {}
-    command = ['/usr/sbin/system_profiler', '-xml', 'SPNetworkDataType', 'SPHardwareDataType']
+    command = [
+        '/usr/sbin/system_profiler', '-xml', 'SPHardwareDataType', 'SPStorageDataType',
+        'SPSoftwareDataType']
     try:
-        stdout = subprocess.check_output(command)
+        output = subprocess.check_output(command)
     except subprocess.CalledProcessError:
-        stdout = None
+        return {}
 
-    if stdout:
-        try:
-            system_profile = FoundationPlist.readPlistFromString(stdout)
-        except FoundationPlist.FoundationPlistException:
-            pass
+    try:
+        system_profile = FoundationPlist.readPlistFromString(output)
+    except FoundationPlist.FoundationPlistException:
+        system_profile = {}
 
-    return system_profile
+    # sytem_profiler gives us back an array; convert to a dict with just
+    # the data we care about.
+    results = {}
+    for data_type in system_profile:
+        key = data_type['_dataType']
+        results[key] = data_type['_items']
+
+    return results
+
+
+def get_console_user():
+    """Get informatino about the console user
+
+    Returns:
+        3-Tuple of (str) username, (int) uid, (int) gid
+    """
+    return SCDynamicStoreCopyConsoleUser(None, None, None)
 
 
 if __name__ == "__main__":
