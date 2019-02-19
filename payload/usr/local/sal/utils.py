@@ -8,7 +8,7 @@ import subprocess
 import sys
 import time
 
-sys.path.append('/usr/local/munki')
+sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist
 from Foundation import kCFPreferencesAnyUser, \
     kCFPreferencesCurrentHost, \
