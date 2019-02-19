@@ -13,7 +13,7 @@ import shutil
 import sys
 import urllib
 
-sys.path.extend(['/usr/local/munki', '/usr/local/sal'])
+sys.path[:0] = ['/usr/local/munki', '/usr/local/sal']
 import utils
 from munkilib import FoundationPlist, munkicommon
 
