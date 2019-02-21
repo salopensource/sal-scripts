@@ -7,7 +7,7 @@ import subprocess
 import sys
 from distutils.version import StrictVersion
 
-sys.path.append('/usr/local/sal')
+sys.path.insert(0, '/usr/local/sal')
 import utils
 
 

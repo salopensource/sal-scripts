@@ -3,7 +3,7 @@
 
 import sys
 
-sys.path.append('/usr/local/sal')
+sys.path.insert(0, '/usr/local/sal')
 import utils
 
 

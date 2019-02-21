@@ -5,9 +5,9 @@ import datetime
 import os
 import sys
 
-sys.path.append('/usr/local/munki')
+sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
-sys.path.append('/usr/local/sal')
+sys.path.insert(0, '/usr/local/sal')
 import utils
 
 

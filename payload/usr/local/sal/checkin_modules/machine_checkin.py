@@ -7,9 +7,9 @@ import sys
 from SystemConfiguration import (
     SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
-sys.path.append('/usr/local/munki')
+sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist
-sys.path.append('/usr/local/sal')
+sys.path.insert(0, '/usr/local/sal')
 import macmodelshelf
 import utils
 
