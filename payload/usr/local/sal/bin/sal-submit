@@ -169,7 +169,7 @@ def remove_skipped_facts():
                 continue
 
             removals = []
-            for fact in results.get('facts'):
+            for fact in results.get('facts', []):
                 if fact in skip_facts:
                     removals.append(fact)
 
