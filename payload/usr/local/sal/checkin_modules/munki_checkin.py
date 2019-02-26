@@ -51,7 +51,7 @@ def main():
         name = item['name']
         submission_item = {}
         submission_item['date_managed'] = now
-        submission_item['status'] = 'PRESENT' if item['installed'] else 'ABSENT'
+        submission_item['status'] = 'PRESENT' if item['installed'] else 'PENDING'
         # Pop off these two since we already used them.
         item.pop('name')
         item.pop('installed')
@@ -61,7 +61,7 @@ def main():
         submission_item['data'] = item
         munki_submission['managed_items'][name] = submission_item
 
-        if submission_item['status'] == 'ABSENT':
+        if submission_item['status'] == 'PENDING':
             # This is pending; put into update histories.
             history = {'name': name, 'update_type': 'third_party', 'status': 'pending'}
             history['date'] = now
