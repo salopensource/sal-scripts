@@ -60,9 +60,9 @@ def main():
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
     if run_type != 'manual':
-        send_inventory(server_url, submission['machine']['serial'])
+        send_inventory(server_url, submission['Machine']['serial'])
         send_catalogs(server_url, machine_group_key)
-        send_profiles(server_url, submission['machine']['serial'])
+        send_profiles(server_url, submission['Machine']['serial'])
 
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
