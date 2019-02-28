@@ -98,7 +98,7 @@ def main():
             if history not in munki_submission['update_history']:
                 munki_submission['update_history'].append(history)
 
-    utils.set_checkin_results('munki', munki_submission)
+    utils.set_checkin_results('Munki', munki_submission)
 
 
 def get_managed_install_report():

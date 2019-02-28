@@ -100,7 +100,7 @@ def exit_if_not_root():
 
 
 def get_run_type(submission):
-    munki = submission.get('munki', {})
+    munki = submission.get('Munki', {})
     return munki['runtype']
 
 

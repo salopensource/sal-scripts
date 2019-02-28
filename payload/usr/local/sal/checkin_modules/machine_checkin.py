@@ -24,7 +24,7 @@ def main():
     machine_results['os_family'] = 'Darwin'
     machine_results['console_user'] = get_console_user()[0]
     machine_results = process_system_profile(machine_results)
-    utils.set_checkin_results('machine', machine_results)
+    utils.set_checkin_results('Machine', machine_results)
 
 
 def process_system_profile(machine_results):
