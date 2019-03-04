@@ -21,6 +21,7 @@ def main():
     munki_submission = utils.get_checkin_results().get('munki', {})
     munki_report = get_managed_install_report()
 
+    munki_submission['extra_data'] = {'apple_results': {}}
     munki_submission['munki_version'] = munki_report['MachineInfo'].get('munki_version')
     munki_submission['manifest'] = munki_report['ManifestName']
     munki_submission['runtype'] = munki_report.get('RunType', 'custom')
@@ -78,19 +79,27 @@ def main():
         munki_submission['managed_items'][item] = submission_item
 
     # Process InstallResults and RemovalResults into update history
-    for report_key, result_type in (('InstallResults', 'install'), ('RemovalResults', 'removal')):
+    for report_key, result_type in (('InstallResults', 'PRESENT'), ('RemovalResults', 'ABSENT')):
         for item in munki_report.get(report_key, []):
-            history = {'name': item['name']}
-            history['update_type'] = 'apple' if item.get('applesus') else 'third_party'
-            history['version'] = item.get('version', '0')
-            history['status'] = 'error' if item.get('status') != 0 else result_type
+            # history = {'name': item['name']}
+            # if item.get('applesus')
+            history = {}
+            # history = {'update_type': 'apple' if item.get('applesus') else 'third_party'}
+            history['status'] = 'ERROR' if item.get('status') != 0 else result_type
             # Munki puts a UTC time in, but python drops the TZ info.
             # Convert to the expected submission format of ISO in UTC.
-            history['date'] = item['time'].isoformat() + 'Z'
-            # Only add if there isn't already an identical one waiting
-            # to be sent.
-            if history not in munki_submission['update_history']:
-                munki_submission['update_history'].append(history)
+            history['date_managed'] = item['time'].isoformat() + 'Z'
+            history['data'] = {'version': item.get('version', '0')}
+            if item.get('applesus'):
+                # This information will be processed by the checkin
+                # code on the server. It's not easy to get from
+                # softwareupdate, and since Apple stuff is showing up in
+                # Munki output, it's safe to assume Munki is managing
+                # Apple SU as well.
+                munki_submission['extra_data']['apple_results'][item['name']] = history
+            else:
+                # Add over top of any pending items we may have already built.
+                munki_submission['managed_items'][item['name']] = history
 
     utils.set_checkin_results('Munki', munki_submission)
 
