@@ -32,10 +32,8 @@ def main():
         submission_item['data'] = {'type': 'Apple SUS Install', 'version': version}
         sus_submission['managed_items'][name] = submission_item
 
-        history = {'name': name, 'update_type': 'apple', 'status': 'install'}
-        history['date'] = date
-        history['version'] = version
-        sus_submission['update_history'].append(history)
+    pending = get_pending()
+    sus_submission['managed_items'].update(pending)
 
     utils.set_checkin_results('Apple Software Update', sus_submission)
 
@@ -111,6 +109,7 @@ def get_sus_facts():
         install_log = handle.readlines()
 
     for line in reversed(install_log):
+        # TODO: Stop if we go before the subprocess call datetime-wise
         if 'Catalog:' in line and 'catalog' not in result:
             result['catalog'] = line.split()[-1]
         elif 'SUScan: Elapsed scan time = ' in line and 'last_check' not in result:
@@ -136,6 +135,37 @@ def get_sus_facts():
             break
 
     return result
+
+
+def get_pending():
+    pending_items = {}
+    cmd = ['softwareupdate', '-l', '--no-scan']
+    try:
+        # softwareupdate outputs "No new software available" to stderr,
+        # so we pipe it off.
+        output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError:
+        return pending_items
+
+    # Example output
+
+    # Software Update Tool
+
+    # Software Update found the following new or updated software:
+    # * macOS High Sierra 10.13.6 Update-
+    #       macOS High Sierra 10.13.6 Update ( ), 1931648K [recommended] [restart]
+    # * iTunesX-12.8.2
+    #       iTunes (12.8.2), 273564K [recommended]
+
+    for line in output.splitlines():
+        if line.strip().startswith('*'):
+            item = {'date_managed': datetime.datetime.utcnow().isoformat() + 'Z'}
+            item['status'] = 'PENDING'
+            pending_items[line.strip()[2:]] = item
+
+    return pending_items
+
+
 
 
 

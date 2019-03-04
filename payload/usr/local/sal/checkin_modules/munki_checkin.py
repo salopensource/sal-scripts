@@ -55,33 +55,18 @@ def main():
         # Pop off these two since we already used them.
         item.pop('name')
         item.pop('installed')
+
         item['type'] = 'ManagedInstalls'
         self_serve = 'True' if name in optional_manifest.get('managed_installs', []) else 'False'
         item['self_serve'] = self_serve
         submission_item['data'] = item
         munki_submission['managed_items'][name] = submission_item
 
-        if submission_item['status'] == 'PENDING':
-            # This is pending; put into update histories.
-            history = {'name': name, 'update_type': 'third_party', 'status': 'pending'}
-            history['date'] = now
-            history['version'] = item['version_to_install']
-            munki_submission['update_history'].append(history)
-
     for item in munki_report.get('managed_uninstalls_list', []):
         submission_item = {'date_managed': now, 'status': 'ABSENT'}
         self_serve = 'True' if name in optional_manifest.get('managed_uninstalls', []) else 'False'
         submission_item['data'] = {'self_serve': self_serve, 'type': 'ManagedUninstalls'}
         munki_submission['managed_items'][item] = submission_item
-
-    # AppleUpdates section -> UpdateHistoryItem
-    for item in munki_report.get('AppleUpdates', []):
-        history = {'name': item['name'], 'update_type': 'apple', 'status': 'pending'}
-        history['date'] = now
-        history['version'] = item['version_to_install']
-        # TODO: This won't do anything on the server yet.
-        history['extra'] = item['productKey']
-        munki_submission['update_history'].append(history)
 
     # Process InstallResults and RemovalResults into update history
     for report_key, result_type in (('InstallResults', 'install'), ('RemovalResults', 'removal')):
