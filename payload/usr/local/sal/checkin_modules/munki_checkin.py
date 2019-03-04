@@ -21,10 +21,12 @@ def main():
     munki_submission = utils.get_checkin_results().get('munki', {})
     munki_report = get_managed_install_report()
 
-    munki_submission['extra_data'] = {'apple_results': {}}
-    munki_submission['munki_version'] = munki_report['MachineInfo'].get('munki_version')
-    munki_submission['manifest'] = munki_report['ManifestName']
-    munki_submission['runtype'] = munki_report.get('RunType', 'custom')
+    extras = {'apple_results': {}}
+    extras['munki_version'] = munki_report['MachineInfo'].get('munki_version')
+    extras['manifest'] = munki_report['ManifestName']
+    extras['runtype'] = munki_report.get('RunType', 'custom')
+
+    munki_submission['extra_data'] = extras
 
     munki_submission['facts'] = {
         'checkin_module_version': __version__,

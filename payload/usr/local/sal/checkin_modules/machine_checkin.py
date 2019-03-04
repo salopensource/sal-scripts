@@ -20,14 +20,17 @@ __version__ = '1.0.0'
 
 def main():
     machine_results = {'facts': {'checkin_module_version': __version__}}
-    machine_results['hostname'] = get_hostname()
-    machine_results['os_family'] = 'Darwin'
-    machine_results['console_user'] = get_console_user()[0]
-    machine_results = process_system_profile(machine_results)
+    extras = {}
+    extras['hostname'] = get_hostname()
+    extras['os_family'] = 'Darwin'
+    extras['console_user'] = get_console_user()[0]
+    extras.update(process_system_profile())
+    machine_results['extra_data'] = extras
     utils.set_checkin_results('Machine', machine_results)
 
 
-def process_system_profile(machine_results):
+def process_system_profile():
+    machine_results = {}
     system_profile = get_sys_profile()
 
     if not system_profile:
@@ -65,7 +68,6 @@ def get_hostname():
     _, name_type, _ = utils.get_server_prefs()
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     return get_machine_name(net_config, name_type)
-
 
 
 def get_machine_name(net_config, nametype):

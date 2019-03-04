@@ -60,9 +60,9 @@ def main():
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
     if run_type != 'manual':
-        send_inventory(server_url, submission['Machine']['serial'])
+        send_inventory(server_url, submission['Machine']['extra_data']['serial'])
         send_catalogs(server_url, machine_group_key)
-        send_profiles(server_url, submission['Machine']['serial'])
+        send_profiles(server_url, submission['Machine']['extra_data']['serial'])
 
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
@@ -101,7 +101,8 @@ def exit_if_not_root():
 
 def get_run_type(submission):
     munki = submission.get('Munki', {})
-    return munki['runtype']
+    munki_extras = munki.get('extra_data', {})
+    return munki_extras.get('runtype', '')
 
 
 def run_plugins(run_type):
