@@ -25,7 +25,12 @@ def main():
     munki_submission['manifest'] = munki_report['ManifestName']
     munki_submission['runtype'] = munki_report.get('RunType', 'custom')
 
-    munki_submission['facts'] = {'facts': {'checkin_module_version': __version__}}
+    munki_submission['facts'] = {
+        'checkin_module_version': __version__,
+        'RunType': munki_report['RunType'],
+        'StartTime': munki_report['StartTime'],
+        'EndTime': munki_report['EndTime'],
+    }
     for condition, value in munki_report['Conditions'].items():
         # Join lists of strings into a comma-delimited string, as
         # the server wants just text.
