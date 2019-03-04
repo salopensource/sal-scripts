@@ -41,7 +41,7 @@ def main():
     munki_submission['messages'] = []
     for key in ('Errors', 'Warnings'):
         for msg in munki_report[key]:
-            munki_submission['messages'].append({'message_type': key, 'message': msg})
+            munki_submission['messages'].append({'message_type': key.upper(), 'text': msg})
 
     now = datetime.datetime.utcnow().isoformat() + 'Z'
     # Process managed items and update histories.
@@ -53,10 +53,14 @@ def main():
     optional_manifest = get_optional_manifest()
 
     for item in munki_report.get('ManagedInstalls', []):
-        name = item['name']
-        submission_item = {}
-        submission_item['date_managed'] = now
+        submission_item = {'date_managed': now}
         submission_item['status'] = 'PRESENT' if item['installed'] else 'PENDING'
+
+        version_key = 'version_to_install' if not item['installed'] else 'installed_version'
+        version = item[version_key]
+        name = '{} {}'.format(item['name'], version)
+        submission_item['name'] = name
+
         # Pop off these two since we already used them.
         item.pop('name')
         item.pop('installed')
