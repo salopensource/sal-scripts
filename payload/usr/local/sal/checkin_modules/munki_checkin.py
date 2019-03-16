@@ -44,7 +44,8 @@ def main():
     munki_submission['messages'] = []
     for key in ('Errors', 'Warnings'):
         for msg in munki_report[key]:
-            munki_submission['messages'].append({'message_type': key.upper(), 'text': msg})
+            # We need to drop the final 'S' to match Sal's message types.
+            munki_submission['messages'].append({'message_type': key.upper()[:-1], 'text': msg})
 
     now = datetime.datetime.utcnow().isoformat() + 'Z'
     # Process managed items and update histories.
