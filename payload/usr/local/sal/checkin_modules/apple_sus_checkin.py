@@ -98,7 +98,7 @@ def get_sus_install_report():
 
 def get_sus_facts():
     result = {'checkin_module_version': __version__}
-
+    before_dump = datetime.datetime.utcnow()
     cmd = ['softwareupdate', '--dump-state']
     try:
         subprocess.check_call(cmd)
@@ -129,12 +129,27 @@ def get_sus_facts():
             # we're using UTC time now.
             result['last_check'] = last_check_datetime.isoformat() + 'Z'
 
-        if 'catalog' in result and 'last_check' in result:
+        log_time = _get_log_time(line)
+        if log_time and before_dump < log_time:
+            # Let's not look earlier than when we started
+            # softwareupdate.
+            break
+
+        elif 'catalog' in result and 'last_check' in result:
             # Once we have both facts, bail; no need to process the
             # entire file.
             break
 
     return result
+
+
+def _get_log_time(line):
+    try:
+        result = datetime.datetime.strptime(line[:19], '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return None
+    utc_result = result - datetime.timedelta(hours=int(line[19:22]))
+    return utc_result
 
 
 def get_pending():
