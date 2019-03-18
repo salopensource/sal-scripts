@@ -51,9 +51,6 @@ def main():
     # Process managed items and update histories.
     munki_submission['managed_items'] = {}
 
-    if 'update_history' not in munki_submission:
-        munki_submission['update_history'] = []
-
     optional_manifest = get_optional_manifest()
 
     for item in munki_report.get('ManagedInstalls', []):
