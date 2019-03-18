@@ -99,7 +99,10 @@ def main():
                 munki_submission['extra_data']['apple_results'][item['name']] = history
             else:
                 # Add over top of any pending items we may have already built.
-                munki_submission['managed_items'][item['name']] = history
+                if item['name'] in munki_submission['managed_items']:
+                    munki_submission['managed_items'][item['name']].update(history)
+                else:
+                    munki_submission['managed_items'][item['name']] = history
 
     utils.set_checkin_results('Munki', munki_submission)
 
