@@ -34,7 +34,7 @@ import yaml
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
-VERSION = '2.1.3'
+VERSION = '2.1.4'
 
 # To resolve unicode write errors set our default encoding to utf8
 reload(sys)
@@ -47,12 +47,16 @@ def main():
     other_sal_pid = utils.pythonScriptRunning('sal-submit')
     if other_sal_pid:
         sys.exit('Another instance of sal-submit is already running. Exiting.')
-    
+
     time.sleep(1)
     munki_pid = utils.pythonScriptRunning('managedsoftwareupdate')
     if munki_pid:
         sys.exit('managedsoftwareupdate is running. Exiting.')
     report = get_managed_install_report()
+    print(report)
+    if check_for_offline(report):
+        sys.exit('Device appears to have been offline during '
+        'last Munki run')
     serial = report['MachineInfo'].get('serial_number')
     if not serial:
         sys.exit('Unable to get MachineInfo from ManagedInstallReport.plist. '
@@ -114,7 +118,7 @@ def main():
         send_install(ServerURL, copy.copy(submission))
         send_catalogs(ServerURL, copy.copy(submission))
         send_profiles(ServerURL, copy.copy(submission))
-    
+
     touchfile = '/Users/Shared/.com.salopensource.sal.run'
     if os.path.exists(touchfile):
         os.remove(touchfile)
@@ -152,6 +156,27 @@ def exit_if_not_root():
     if uid != 0:
         sys.exit("Manually running this script requires sudo.")
 
+
+def check_for_offline(report):
+    """Checks if the device was offline for last Munki run."""
+    errors = report.get("Errors", [])
+    warnings = report.get("Warnings", [])
+    target_errors = ["Could not retrieve managed install primary manifest."]
+    target_warnings = [
+        "Could not download Apple SUS catalog:",
+        "\t(-1009, u'The Internet connection appears to be offline.')"
+    ]
+
+    using_sus = munkicommon.pref('InstallAppleSoftwareUpdates')
+
+    if using_sus:
+        if warnings == target_warnings and errors == target_errors:
+            return True
+    else:
+        if errors == target_errors:
+            return True
+
+    return False
 
 def get_server_prefs():
     """Get Sal preferences, bailing if required info is missing.
