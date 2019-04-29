@@ -52,9 +52,9 @@ def main():
     munki_pid = utils.pythonScriptRunning('managedsoftwareupdate')
     if munki_pid:
         sys.exit('managedsoftwareupdate is running. Exiting.')
-    report = get_managed_install_report()
-    print(report)
-    if check_for_offline(report):
+    report = utils.get_managed_install_report()
+
+    if utils.pref('LastRunWasOffline'):
         sys.exit('Device appears to have been offline during '
         'last Munki run')
     serial = report['MachineInfo'].get('serial_number')
@@ -157,27 +157,6 @@ def exit_if_not_root():
         sys.exit("Manually running this script requires sudo.")
 
 
-def check_for_offline(report):
-    """Checks if the device was offline for last Munki run."""
-    errors = report.get("Errors", [])
-    warnings = report.get("Warnings", [])
-    target_errors = ["Could not retrieve managed install primary manifest."]
-    target_warnings = [
-        "Could not download Apple SUS catalog:",
-        "\t(-1009, u'The Internet connection appears to be offline.')"
-    ]
-
-    using_sus = munkicommon.pref('InstallAppleSoftwareUpdates')
-
-    if using_sus:
-        if warnings == target_warnings and errors == target_errors:
-            return True
-    else:
-        if errors == target_errors:
-            return True
-
-    return False
-
 def get_server_prefs():
     """Get Sal preferences, bailing if required info is missing.
 
@@ -199,37 +178,6 @@ def get_server_prefs():
     return (required_prefs["ServerURL"], name_type, required_prefs["key"])
 
 
-def get_managed_install_report():
-    """Return Munki ManagedInstallsReport.plist as a plist dict.
-
-    Returns:
-        ManagedInstalls report for last Munki run as a plist
-        dict, or an empty dict.
-    """
-    # Checks munki preferences to see where the install directory is set to.
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-
-    # set the paths based on munki's configuration.
-    managed_install_report = os.path.join(
-        managed_install_dir, 'ManagedInstallReport.plist')
-
-    munkicommon.display_debug2(
-        "Looking for munki's ManagedInstallReport.plist at {} ...".format(
-            managed_install_report))
-    try:
-        munki_report = FoundationPlist.readPlist(managed_install_report)
-    except FoundationPlist.FoundationPlistException:
-        munki_report = {}
-
-    if 'MachineInfo' not in munki_report:
-        munki_report['MachineInfo'] = {}
-
-    munkicommon.display_debug2('ManagedInstallReport.plist:')
-    munkicommon.display_debug2(format_plist(munki_report))
-
-    return munki_report
-
-
 def get_plugin_results(plugin_results_plist):
     """ Read external data plist if it exists and return a dict."""
     result = {}
@@ -237,7 +185,7 @@ def get_plugin_results(plugin_results_plist):
         try:
             plist_data = FoundationPlist.readPlist(plugin_results_plist)
             munkicommon.display_debug2('External data plist:')
-            munkicommon.display_debug2(format_plist(plist_data))
+            munkicommon.display_debug2(utils.format_plist(plist_data))
             result = plist_data
         except FoundationPlist.NSPropertyListSerializationException:
             munkicommon.display_debug2('Could not read external data plist.')
@@ -245,12 +193,6 @@ def get_plugin_results(plugin_results_plist):
         munkicommon.display_debug2('No external data plist found.')
 
     return result
-
-
-def format_plist(plist):
-    """Format a plist as a string for debug output."""
-    # For now, just dump it.
-    return FoundationPlist.writePlistToString(plist)
 
 
 def get_sys_profile():
@@ -277,7 +219,7 @@ def get_sys_profile():
 
         munkicommon.display_debug2(
             'System Profiler SPNetworkDataType and SPHardwareDataType:')
-        munkicommon.display_debug2(format_plist(system_profile))
+        munkicommon.display_debug2(utils.format_plist(system_profile))
 
     return system_profile
 
