@@ -66,6 +66,7 @@ def pref(pref_name):
         'GetGrains': False,
         'GetOhai': False,
         'LastRunWasOffline': False,
+        'SendOfflineReport': False,
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
@@ -137,6 +138,7 @@ def pythonScriptRunning(scriptname):
         else:
             time.sleep(1)
             counter = counter + 1
+
 
 def check_script_running(scriptname):
     """
