@@ -52,6 +52,9 @@ def check_server_connection():
     return True
 
 def check_server_online():
+    # is the offline report pref true?
+    if not utils.pref('SendOfflineReport'):
+        return
     # read report
     report = utils.get_managed_install_report()
     # check for errors and warnings
@@ -59,7 +62,7 @@ def check_server_online():
         utils.set_pref('LastRunWasOffline', False)
         return
     # if they're there check is server is really offline
-    if not check_server_connection():
+    if check_server_connection():
         utils.set_pref('LastRunWasOffline', True)
         return
 
