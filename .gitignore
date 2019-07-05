@@ -64,3 +64,5 @@ FoundationPlist.py
 # Go junk
 vendor/
 report_broken_client/build
+
+.vscode/
