@@ -23,7 +23,7 @@ def main():
 
     extras = {'apple_results': {}}
     extras['munki_version'] = munki_report['MachineInfo'].get('munki_version')
-    extras['manifest'] = munki_report['ManifestName']
+    extras['manifest'] = munki_report.get('ManifestName')
     extras['runtype'] = munki_report.get('RunType', 'custom')
 
     munki_submission['extra_data'] = extras
@@ -34,12 +34,13 @@ def main():
         'StartTime': munki_report['StartTime'],
         'EndTime': munki_report['EndTime'],
     }
-    for condition, value in munki_report['Conditions'].items():
-        # Join lists of strings into a comma-delimited string, as
-        # the server wants just text.
-        if hasattr(value, 'append'):
-            value = ', '.join(value)
-        munki_submission['facts'][condition] = value
+    if munki_report.get('Conditions'):
+        for condition, value in munki_report['Conditions'].items():
+            # Join lists of strings into a comma-delimited string, as
+            # the server wants just text.
+            if hasattr(value, 'append'):
+                value = ', '.join(value)
+            munki_submission['facts'][condition] = value
 
     munki_submission['messages'] = []
     for key in ('Errors', 'Warnings'):
