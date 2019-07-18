@@ -8,8 +8,8 @@ import subprocess
 import sys
 import time
 
-sys.path.append('/usr/local/munki')
-from munkilib import FoundationPlist
+sys.path.insert(0, '/usr/local/munki')
+from munkilib import FoundationPlist, munkicommon
 from Foundation import kCFPreferencesAnyUser, \
     kCFPreferencesCurrentHost, \
     CFPreferencesSetValue, \
@@ -33,7 +33,7 @@ def set_pref(pref_name, pref_value):
     """Sets a Sal preference.
 
     The preference file on disk is located at
-    /Library/Preferences/com.salopensource.sal.plist.  This should
+    /Library/Preferences/com.github.salopensource.sal.plist.  This should
     normally be used only for 'bookkeeping' values; values that control
     the behavior of munki may be overridden elsewhere (by MCX, for
     example)"""
@@ -53,8 +53,8 @@ def pref(pref_name):
     Since this uses CFPreferencesCopyAppValue, Preferences can be defined
     several places. Precedence is:
         - MCX
-        - /var/root/Library/Preferences/com.salopensource.sal.plist
-        - /Library/Preferences/com.salopensource.sal.plist
+        - /var/root/Library/Preferences/com.github.salopensource.sal.plist
+        - /Library/Preferences/com.github.salopensource.sal.plist
         - default_prefs defined here.
     """
     default_prefs = {
@@ -65,6 +65,8 @@ def pref(pref_name):
         'BasicAuth': True,
         'GetGrains': False,
         'GetOhai': False,
+        'LastRunWasOffline': False,
+        'SendOfflineReport': False,
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
@@ -80,6 +82,43 @@ def pref(pref_name):
         pref_value = str(pref_value)
 
     return pref_value
+
+
+def get_managed_install_report():
+    """Return Munki ManagedInstallsReport.plist as a plist dict.
+
+    Returns:
+        ManagedInstalls report for last Munki run as a plist
+        dict, or an empty dict.
+    """
+    # Checks munki preferences to see where the install directory is set to.
+    managed_install_dir = munkicommon.pref('ManagedInstallDir')
+
+    # set the paths based on munki's configuration.
+    managed_install_report = os.path.join(
+        managed_install_dir, 'ManagedInstallReport.plist')
+
+    munkicommon.display_debug2(
+        "Looking for munki's ManagedInstallReport.plist at {} ...".format(
+            managed_install_report))
+    try:
+        munki_report = FoundationPlist.readPlist(managed_install_report)
+    except FoundationPlist.FoundationPlistException:
+        munki_report = {}
+
+    if 'MachineInfo' not in munki_report:
+        munki_report['MachineInfo'] = {}
+
+    munkicommon.display_debug2('ManagedInstallReport.plist:')
+    munkicommon.display_debug2(format_plist(munki_report))
+
+    return munki_report
+
+
+def format_plist(plist):
+    """Format a plist as a string for debug output."""
+    # For now, just dump it.
+    return FoundationPlist.writePlistToString(plist)
 
 
 def pythonScriptRunning(scriptname):
@@ -99,6 +138,7 @@ def pythonScriptRunning(scriptname):
         else:
             time.sleep(1)
             counter = counter + 1
+
 
 def check_script_running(scriptname):
     """
