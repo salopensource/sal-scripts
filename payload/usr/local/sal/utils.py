@@ -33,7 +33,7 @@ def set_pref(pref_name, pref_value):
     """Sets a Sal preference.
 
     The preference file on disk is located at
-    /Library/Preferences/com.salopensource.sal.plist.  This should
+    /Library/Preferences/com.github.salopensource.sal.plist.  This should
     normally be used only for 'bookkeeping' values; values that control
     the behavior of munki may be overridden elsewhere (by MCX, for
     example)"""
@@ -53,8 +53,8 @@ def pref(pref_name):
     Since this uses CFPreferencesCopyAppValue, Preferences can be defined
     several places. Precedence is:
         - MCX
-        - /var/root/Library/Preferences/com.salopensource.sal.plist
-        - /Library/Preferences/com.salopensource.sal.plist
+        - /var/root/Library/Preferences/com.github.salopensource.sal.plist
+        - /Library/Preferences/com.github.salopensource.sal.plist
         - default_prefs defined here.
     """
     default_prefs = {
