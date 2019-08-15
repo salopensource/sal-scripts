@@ -1,32 +1,32 @@
 #!/usr/bin/python
 
 
+import base64
+import bz2
+import datetime
 import hashlib
+import json
 import os
 import stat
 import subprocess
 import sys
 import time
+import urllib
 
 sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist, munkicommon
-from Foundation import kCFPreferencesAnyUser, \
-    kCFPreferencesCurrentHost, \
-    CFPreferencesSetValue, \
-    CFPreferencesAppSynchronize, \
-    CFPreferencesCopyAppValue, \
-    NSDate, NSArray
+from munkilib import FoundationPlist
+from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
+                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
+                        NSDictionary, NSData)
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
+RESULTS_PATH = '/usr/local/sal/checkin_results.json'
+VERSION = '3.0.0'
 
 
-class GurlError(Exception):
-    pass
-
-
-class HTTPError(Exception):
-    pass
+def sal_version():
+    return VERSION
 
 
 def set_pref(pref_name, pref_value):
@@ -39,15 +39,14 @@ def set_pref(pref_name, pref_value):
     example)"""
     try:
         CFPreferencesSetValue(
-            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser,
-            kCFPreferencesCurrentHost)
+            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
         CFPreferencesAppSynchronize(BUNDLE_ID)
 
     except Exception:
         pass
 
 
-def pref(pref_name):
+def pref(pref_name, default=None):
     """Return a preference value.
 
     Since this uses CFPreferencesCopyAppValue, Preferences can be defined
@@ -70,7 +69,9 @@ def pref(pref_name):
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value is None and pref_name in default_prefs:
+    if pref_value is None and default:
+        pref_value = default
+    elif pref_value is None and pref_name in default_prefs:
         pref_value = default_prefs.get(pref_name)
         # we're using a default value. We'll write it out to
         # /Library/Preferences/<BUNDLE_ID>.plist for admin
@@ -84,49 +85,11 @@ def pref(pref_name):
     return pref_value
 
 
-def get_managed_install_report():
-    """Return Munki ManagedInstallsReport.plist as a plist dict.
+def python_script_running(scriptname):
+    """Tests if a script is running.
 
-    Returns:
-        ManagedInstalls report for last Munki run as a plist
-        dict, or an empty dict.
+    If it is found running, it will try up to two more times to see if it has exited.
     """
-    # Checks munki preferences to see where the install directory is set to.
-    managed_install_dir = munkicommon.pref('ManagedInstallDir')
-
-    # set the paths based on munki's configuration.
-    managed_install_report = os.path.join(
-        managed_install_dir, 'ManagedInstallReport.plist')
-
-    munkicommon.display_debug2(
-        "Looking for munki's ManagedInstallReport.plist at {} ...".format(
-            managed_install_report))
-    try:
-        munki_report = FoundationPlist.readPlist(managed_install_report)
-    except FoundationPlist.FoundationPlistException:
-        munki_report = {}
-
-    if 'MachineInfo' not in munki_report:
-        munki_report['MachineInfo'] = {}
-
-    munkicommon.display_debug2('ManagedInstallReport.plist:')
-    munkicommon.display_debug2(format_plist(munki_report))
-
-    return munki_report
-
-
-def format_plist(plist):
-    """Format a plist as a string for debug output."""
-    # For now, just dump it.
-    return FoundationPlist.writePlistToString(plist)
-
-
-def pythonScriptRunning(scriptname):
-    """
-    Tests if a script is running. If it is found running, it will try
-    up to two more times to see if it has exited.
-    """
-
     counter = 0
     pid = 0
     while True:
@@ -179,7 +142,7 @@ def check_script_running(scriptname):
     return 0
 
 
-def curl(url, data=None):
+def curl(url, data=None, json_path=None):
     cmd = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
 
     # Use a PEM format certificate file to verify the peer. This is
@@ -209,13 +172,16 @@ def curl(url, data=None):
 
     if data:
         cmd += ['--data', data]
+    elif json_path:
+        cmd += ['--header', 'Content-Type: application/json']
+        # Use the @ syntax for curl to open the file and do any required
+        # encoding for us.
+        cmd += ['--data', '@%s' % json_path]
 
-    cmd += [url]
+    cmd.append(url)
 
-    task = subprocess.Popen(
-        cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (stdout, stderr) = task.communicate()
-    return stdout, stderr
+    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return task.communicate()
 
 
 def get_file_and_hash(path):
@@ -225,26 +191,18 @@ def get_file_and_hash(path):
         with open(path) as ifile:
             text = ifile.read()
 
-    return (text, hashlib.sha256(text).hexdigest())
+    return text, hashlib.sha256(text).hexdigest()
 
 
-def dict_clean(items):
-    result = {}
-    skip_facts = pref('SkipFacts')
-    for key, value in items:
-        skip = False
-        if value is None:
-            value = 'None'
+def send_report(url, form_data=None, json_data=None, json_path=None):
+    if form_data:
+        stdout, stderr = curl(url, data=urllib.urlencode(form_data))
+    elif json_data:
+        raise NotImplementedError
+    elif json_path:
+        stdout, stderr = curl(url, json_path=RESULTS_PATH)
 
-        for skip_fact in skip_facts:
-            if key.startswith(skip_fact):
-                skip = True
-                break
-
-        if not skip:
-            result[key] = value
-
-    return result
+    return stdout, stderr
 
 
 def add_plugin_results(plugin, data, historical=False):
@@ -269,13 +227,107 @@ def add_plugin_results(plugin, data, historical=False):
     FoundationPlist.writePlist(plugin_results, plist_path)
 
 
-def run_scripts(dir_path, cli_args):
+def get_checkin_results():
+    if os.path.exists(RESULTS_PATH):
+        with open(RESULTS_PATH) as results_handle:
+            results = json.load(results_handle)
+    else:
+        results = {}
+
+    return results
+
+
+def clean_results():
+    os.remove(RESULTS_PATH)
+
+
+def save_results(data):
+    """Replace all data in the results file."""
+    with open(RESULTS_PATH, 'w') as results_handle:
+        # Python2 json.dump encodes all unicode to UTF-8 for us.
+        json.dump(data, results_handle, default=serializer)
+
+
+def set_checkin_results(module_name, data):
+    """Set data by name to the shared results JSON file.
+
+    Existing data is overwritten.
+
+    Args:
+        module_name (str): Name of the management source returning data.
+        data (dict): Dictionary of results.
+    """
+    results = get_checkin_results()
+
+    results[module_name] = data
+    save_results(results)
+
+
+def serializer(obj):
+    """Func used by `json.dump`s default arg to serialize datetimes."""
+    # Through testing, it seems that this func is not used by json.dump
+    # for strings, so we don't have to handle them here.
+    if isinstance(obj, datetime.datetime):
+        obj = obj.isoformat() + 'Z'
+    return obj
+
+
+def run_scripts(dir_path, cli_args=None):
+    results = []
     for script in os.listdir(dir_path):
         script_stat = os.stat(os.path.join(dir_path, script))
         if not script_stat.st_mode & stat.S_IWOTH:
+            cmd = [os.path.join(dir_path, script)]
+            if cli_args:
+                cmd.append(cli_args)
             try:
-                subprocess.call([os.path.join(dir_path, script), cli_args], stdin=None)
+                subprocess.call(cmd, stdin=None)
+                results.append("'{}' ran successfully".format(script))
             except (OSError, subprocess.CalledProcessError):
-                print "'{}' had errors during execution!".format(script)
+                results.append("'{}' had errors during execution!".format(script))
         else:
-            print "'{}' is not executable or has bad permissions".format(script)
+            results.append("'{}' is not executable or has bad permissions".format(script))
+    return results
+
+
+def get_server_prefs():
+    """Get Sal preferences, bailing if required info is missing.
+
+    Returns:
+        Tuple of (Server URL, NameType, and key (business unit key)
+    """
+    # Check for mandatory prefs and bail if any are missing.
+    required_prefs = {
+        'key': pref('key'),
+        'server_url': pref('ServerURL').rstrip('/')}
+
+    for key, val in required_prefs.items():
+        if not val:
+            sys.exit('Required Sal preference "{}" is not set.'.format(key))
+
+    # Get optional preferences.
+    name_type = pref('NameType', default='ComputerName')
+
+    return required_prefs["server_url"], name_type, required_prefs["key"]
+
+
+def unobjctify(plist_data):
+    """Recursively convert pyobjc types to native python"""
+    if isinstance(plist_data, NSArray):
+        return [unobjctify(i) for i in plist_data]
+    elif isinstance(plist_data, NSDictionary):
+        return {k: unobjctify(v) for k, v in plist_data.items()}
+    elif isinstance(plist_data, NSData):
+        return u'<RAW DATA>'
+    elif isinstance(plist_data, NSDate):
+        # NSDate.description is in UTC, so drop the offset and we'll
+        # add it back in when serializing to JSON.
+        date_as_iso_string = plist_data.description().rsplit(' ', 1)[0]
+        return datetime.datetime.strptime(date_as_iso_string, '%Y-%m-%d %H:%M:%S')
+    # bools, floats, and ints seem to be covered.
+    return plist_data
+
+
+def submission_encode(text):
+    """Return a b64 encoded, bz2 compressed copy of text."""
+    return base64.b64encode(bz2.compress(text))

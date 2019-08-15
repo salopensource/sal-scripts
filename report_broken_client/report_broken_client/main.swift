@@ -24,7 +24,7 @@ let key = defaults?.string(forKey: "key") ?? ""
 
 var urlString =  defaults?.string(forKey: "ServerURL") ?? ""
 
-urlString = urlString + "/checkin/"
+urlString = urlString + "/report_broken_client/"
 
 let serial = getSerial()
 
