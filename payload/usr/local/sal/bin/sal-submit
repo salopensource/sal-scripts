@@ -32,6 +32,7 @@ def main():
     exit_if_not_root()
     if utils.python_script_running('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
+
     time.sleep(1)
     if utils.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
@@ -98,7 +99,7 @@ def exit_if_not_root():
     if uid != 0:
         sys.exit("Manually running this script requires sudo.")
 
-
+        
 def get_run_type(submission):
     munki = submission.get('Munki', {})
     munki_extras = munki.get('extra_data', {})

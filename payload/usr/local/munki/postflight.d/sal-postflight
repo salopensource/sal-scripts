@@ -3,6 +3,13 @@
 
 import os
 import subprocess
+import sys
+import socket
+import urllib2
+
+sys.path[:0] = ['/usr/local/munki', '/usr/local/sal']
+import utils
+from munkilib import FoundationPlist, munkicommon
 
 
 TOUCH_FILE_PATH = '/Users/Shared/.com.salopensource.sal.run'
@@ -10,6 +17,59 @@ LAUNCHD = 'com.salopensource.sal.runner'
 LAUNCHD_PATH = '/Library/LaunchDaemons/{}.plist'.format(LAUNCHD)
 SUBMIT_SCRIPT = '/usr/local/sal/bin/sal-submit'
 
+
+def check_for_errors(report):
+    """Checks if the device was offline for last Munki run."""
+    errors = report.get("Errors", [])
+    warnings = report.get("Warnings", [])
+    target_errors = ["Could not retrieve managed install primary manifest."]
+    target_warnings = [
+        "Could not download Apple SUS catalog:",
+        "\t(-1009, u'The Internet connection appears to be offline.')"
+    ]
+
+    using_sus = munkicommon.pref('InstallAppleSoftwareUpdates')
+
+    if using_sus:
+        if warnings == target_warnings and errors == target_errors:
+            return True
+    else:
+        if errors == target_errors:
+            return True
+
+    return False
+
+
+def check_server_connection():
+    host = munkicommon.pref('SoftwareRepoURL')
+    try:
+        urllib2.urlopen(host, timeout=5).getcode()
+    except urllib2.HTTPError as e:
+        # If we get a http error, the server is returning _something_
+        return True
+    except urllib2.URLError as e:
+        return False
+    except socket.timeout as e:
+        return False
+    return True
+
+def check_server_online():
+    # is the offline report pref true?
+    if not utils.pref('SendOfflineReport'):
+        return
+    # read report
+    report = utils.get_managed_install_report()
+    # check for errors and warnings
+    if not check_for_errors(report):
+        utils.set_pref('LastRunWasOffline', False)
+        return
+    # if they're there check is server is really offline
+    if check_server_connection():
+        utils.set_pref('LastRunWasOffline', True)
+        return
+
+    # If we get here, it's online
+    utils.set_pref('LastRunWasOffline', False)
 
 def write_touch_file():
     if os.path.exists(TOUCH_FILE_PATH):
@@ -37,6 +97,7 @@ def ensure_launchd_loaded():
 
 
 def main():
+    check_server_online()
     write_touch_file()
     ensure_launchd_loaded()
     # If the launchd isn't present, call the submit script old school
