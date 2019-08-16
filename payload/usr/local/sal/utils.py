@@ -170,6 +170,9 @@ def curl(url, data=None, json_path=None):
     max_time = '8' if data else '4'
     cmd += ['--max-time', max_time]
 
+    if VERSION:
+        cmd += ['--header', 'SalScript-Version: %s' % VERSION]
+
     if data:
         cmd += ['--data', data]
     elif json_path:
