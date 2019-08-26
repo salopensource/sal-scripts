@@ -12,13 +12,14 @@ PAYLOAD=\
 	pack-script-postinstall
 
 clean-build:
-	rm -rf report_broken_client/build
+	@sudo rm -rf report_broken_client/build
 
 pack-report-broken-client: pack-sal-scripts clean-build
 	xcodebuild -project report_broken_client/report_broken_client.xcodeproj -configuration Release
 	@sudo ${CP} report_broken_client/build/Release/report_broken_client ${WORK_D}/usr/local/munki/report_broken_client
 
 pack-sal-scripts: l_usr_local
+	@sudo find . -name '*.pyc' -delete
 	@sudo ${CP} -R payload/ ${WORK_D}
 	@sudo chown -R root:wheel ${WORK_D}
 	@sudo chmod -R 755 ${WORK_D}
