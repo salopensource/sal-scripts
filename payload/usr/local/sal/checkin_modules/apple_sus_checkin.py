@@ -110,7 +110,7 @@ def get_sus_facts():
 
     for line in reversed(install_log):
         # TODO: Stop if we go before the subprocess call datetime-wise
-        if 'Catalog:' in line and 'catalog' not in result:
+        if 'Catalog: http' in line and 'catalog' not in result:
             result['catalog'] = line.split()[-1]
         elif 'SUScan: Elapsed scan time = ' in line and 'last_check' not in result:
             # Example date 2019-02-08 10:49:56-05
