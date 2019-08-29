@@ -99,7 +99,7 @@ def exit_if_not_root():
     if uid != 0:
         sys.exit("Manually running this script requires sudo.")
 
-        
+
 def get_run_type(submission):
     munki = submission.get('Munki', {})
     munki_extras = munki.get('extra_data', {})
@@ -187,6 +187,7 @@ def remove_skipped_facts():
 
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
+    logging.debug("Sending report to {}".format(checkinurl))
     logging.debug("Checkin Response:")
     out, error = utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
     log(out, error)
