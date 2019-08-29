@@ -2,7 +2,7 @@
 
 
 import datetime
-import os
+import platform
 import plistlib
 import re
 import subprocess
@@ -35,7 +35,6 @@ def get_sus_install_report():
     """Return installed apple updates from softwareupdate"""
     try:
         history = plistlib.readPlist('/Library/Receipts/InstallHistory.plist')
-        # TODO: Put in the correct exceptions
     except (IOError, xml.parsers.expat.ExpatError):
         history = []
     return {
@@ -115,28 +114,71 @@ def get_pending():
     except subprocess.CalledProcessError:
         return pending_items
 
-    # Example output
+    # The following regex code is from Shea Craig's work on the Salt
+    # mac_softwareupdate module. Reference that for future updates.
+    if StrictVersion(platform.mac_ver()[0]) >= StrictVersion('10.15'):
+        # Example output:
+        # Software Update Tool
+        #
+        # Finding available software
+        # Software Update found the following new or updated software:
+        # * Label: Command Line Tools beta 5 for Xcode-11.0
+        #     Title: Command Line Tools beta 5 for Xcode, Version: 11.0, Size: 224804K, Recommended: YES,
+        # * Label: macOS Catalina Developer Beta-6
+        #     Title: macOS Catalina Public Beta, Version: 5, Size: 3084292K, Recommended: YES, Action: restart,
+        # * Label: BridgeOSUpdateCustomer
+        #     Title: BridgeOSUpdateCustomer, Version: 10.15.0.1.1.1560926689, Size: 390674K, Recommended: YES, Action: shut down,
+        # - Label: iCal-1.0.2
+        #     Title: iCal, Version: 1.0.2, Size: 6520K,
+        rexp = re.compile(
+            r'(?m)'  # Turn on multiline matching
+            r'^\s*[*-] Label: '  # Name lines start with * or - and "Label: "
+            r'(?P<name>[^ ].*)[\r\n]'  # Capture the rest of that line; this is the update name.
+            r'.*Version: (?P<version>[^,]*), '  # Grab the version number.
+            r'Size: (?P<size>[^,]*),\s*'  # Grab the size; unused at this time.
+            r'(?P<recommended>Recommended: YES,)?\s*'  # Optionally grab the recommended flag.
+            r'(?P<action>Action: (?:restart|shut down),)?'  # Optionally grab an action.
+        )
+    else:
+        # Example output:
+        # Software Update Tool
+        #
+        # Finding available software
+        # Software Update found the following new or updated software:
+        #    * Command Line Tools (macOS Mojave version 10.14) for Xcode-10.3
+        #        Command Line Tools (macOS Mojave version 10.14) for Xcode (10.3), 199140K [recommended]
+        #    * macOS 10.14.1 Update
+        #        macOS 10.14.1 Update (10.14.1), 199140K [recommended] [restart]
+        #    * BridgeOSUpdateCustomer
+        #        BridgeOSUpdateCustomer (10.14.4.1.1.1555388607), 328394K, [recommended] [shut down]
+        #    - iCal-1.0.2
+        #        iCal, (1.0.2), 6520K
+        rexp = re.compile(
+            r'(?m)'  # Turn on multiline matching
+            r'^\s+[*-] '  # Name lines start with 3 spaces and either a * or a -.
+            r'(?P<name>[^ ].*)[\r\n]'  # The rest of that line is the name.
+            r'.*\((?P<version>[^\)]+)'  # Capture the last parenthesized value on the next line.
+            r'[^\r\n\[]*(?P<recommended>\[recommended\])?\s?'  # Capture [recommended] if there.
+            r'(?P<action>\[(?:restart|shut down)\])?'  # Capture an action if present.
+        )
 
-    # Software Update Tool
-
-    # Software Update found the following new or updated software:
-    # * macOS High Sierra 10.13.6 Update-
-    #       macOS High Sierra 10.13.6 Update ( ), 1931648K [recommended] [restart]
-    # * iTunesX-12.8.2
-    #       iTunes (12.8.2), 273564K [recommended]
-
-    for line in output.splitlines():
-        if line.strip().startswith('*'):
-            item = {'date_managed': datetime.datetime.utcnow().isoformat() + 'Z'}
-            item['status'] = 'PENDING'
-            pending_items[line.strip()[2:]] = item
-
-    # TODO: Catalina
-
-    return pending_items
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
+    return {
+        m.group('name'): {
+            'date_managed': now,
+            'status': 'PENDING',
+            'data': {
+                'version': m.group('version'),
+                'recommended': 'TRUE' if 'recommended' in m.group('recommended') else 'FALSE',
+                'action': _bracket_cleanup(m, 'action')
+            }
+        } for m in rexp.finditer(output)
+    }
 
 
-
+def _bracket_cleanup(match, key):
+    """Strip out [ and ] and uppercase SUS output"""
+    return re.sub(r'[\[\]]', '', match.group(key) or '').upper()
 
 
 if __name__ == "__main__":
