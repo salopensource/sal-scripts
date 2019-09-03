@@ -2,35 +2,28 @@
 
 
 import datetime
+import platform
+import plistlib
 import re
 import subprocess
 import sys
+import xml.parsers.expat
 from distutils.version import StrictVersion
 
 sys.path.insert(0, '/usr/local/sal')
 import utils
 
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 
 def main():
     sus_submission = {}
-    sus_report = get_sus_install_report()
-
     sus_submission['facts'] = get_sus_facts()
 
     # Process managed items and update histories.
-    sus_submission['managed_items'] = {}
+    sus_submission['managed_items'] = get_sus_install_report()
     sus_submission['update_history'] = []
-
-    for item in sus_report:
-        name, version, date = item
-        submission_item = {}
-        submission_item['date_managed'] = date
-        submission_item['status'] = 'PRESENT'
-        submission_item['data'] = {'type': 'Apple SUS Install', 'version': version}
-        sus_submission['managed_items'][name] = submission_item
 
     pending = get_pending()
     sus_submission['managed_items'].update(pending)
@@ -40,60 +33,19 @@ def main():
 
 def get_sus_install_report():
     """Return installed apple updates from softwareupdate"""
-    cmd = ['softwareupdate', '--history']
     try:
-        output = subprocess.check_output(cmd)
-    except subprocess.CalledProcessError:
-        # This is a new argument and not supported on all OS versions
-        return []
-
-    # Example output:
-    # macOS Mojave                                       10.14.1    11/06/2018, 08:41:49
-    # macOS 10.14.1 Update                                          11/02/2018, 13:24:17
-    # Command Line Tools (macOS High Sierra version 10.13) for Xcode 10.1       11/02/2018, 12:36:15
-
-    # Line one is a "normal" line, name, version, and date are separated
-    # by 2+ spaces.
-    # Line two has no version number.
-    # Line three has such a long name that they decided to output only
-    # one space between the name and the version.
-
-    # Drop the header and do an initial split on 2 or more whitespace
-    mostly_parsed = [re.split(r' {2,}', l.strip()) for l in output.splitlines()[2:]]
-    results = []
-    for line in mostly_parsed:
-        # If we have three lines, everything is fine.
-        if len(line) == 2:
-            # Some long update names are displayed without a minimum 2
-            # space delimiter, so we have to split them again.
-            # This time, we split on a single space and then see if the
-            # second item can be cast to a StrictVersion.
-            attempt = line[0].rsplit(' ', 1)
-            if len(attempt) == 2:
-                try:
-                    # If we got a StrictVersion, then use our split
-                    # results
-                    StrictVersion(attempt[1])
-                    name = attempt[0]
-                    version = attempt[1]
-                except ValueError:
-                    # Otherwise, there's no versionm, just a name.
-                    name = line[0]
-                    version = None
-
-            else:
-                # I haven't seen examples of this (name with no spaces
-                # and a date), but it's here just in case.
-                name = line[0]
-                version = None
-        else:
-            name = line[0]
-            version = line[1]
-
-        installed = datetime.datetime.strptime(line[-1], '%m/%d/%Y, %H:%M:%S')
-        results.append([name, version, installed])
-
-    return results
+        history = plistlib.readPlist('/Library/Receipts/InstallHistory.plist')
+    except (IOError, xml.parsers.expat.ExpatError):
+        history = []
+    return {
+        i['displayName']: {
+            'date_managed': i['date'],
+            'status': 'PRESENT',
+            'data': {
+                'type': 'Apple SUS Install',
+                'version': i['displayVersion'].strip()
+            }
+        } for i in history if i['processName'] == 'softwareupdated'}
 
 
 def get_sus_facts():
@@ -162,26 +114,71 @@ def get_pending():
     except subprocess.CalledProcessError:
         return pending_items
 
-    # Example output
+    # The following regex code is from Shea Craig's work on the Salt
+    # mac_softwareupdate module. Reference that for future updates.
+    if StrictVersion(platform.mac_ver()[0]) >= StrictVersion('10.15'):
+        # Example output:
+        # Software Update Tool
+        #
+        # Finding available software
+        # Software Update found the following new or updated software:
+        # * Label: Command Line Tools beta 5 for Xcode-11.0
+        #     Title: Command Line Tools beta 5 for Xcode, Version: 11.0, Size: 224804K, Recommended: YES,
+        # * Label: macOS Catalina Developer Beta-6
+        #     Title: macOS Catalina Public Beta, Version: 5, Size: 3084292K, Recommended: YES, Action: restart,
+        # * Label: BridgeOSUpdateCustomer
+        #     Title: BridgeOSUpdateCustomer, Version: 10.15.0.1.1.1560926689, Size: 390674K, Recommended: YES, Action: shut down,
+        # - Label: iCal-1.0.2
+        #     Title: iCal, Version: 1.0.2, Size: 6520K,
+        rexp = re.compile(
+            r'(?m)'  # Turn on multiline matching
+            r'^\s*[*-] Label: '  # Name lines start with * or - and "Label: "
+            r'(?P<name>[^ ].*)[\r\n]'  # Capture the rest of that line; this is the update name.
+            r'.*Version: (?P<version>[^,]*), '  # Grab the version number.
+            r'Size: (?P<size>[^,]*),\s*'  # Grab the size; unused at this time.
+            r'(?P<recommended>Recommended: YES,)?\s*'  # Optionally grab the recommended flag.
+            r'(?P<action>Action: (?:restart|shut down),)?'  # Optionally grab an action.
+        )
+    else:
+        # Example output:
+        # Software Update Tool
+        #
+        # Finding available software
+        # Software Update found the following new or updated software:
+        #    * Command Line Tools (macOS Mojave version 10.14) for Xcode-10.3
+        #        Command Line Tools (macOS Mojave version 10.14) for Xcode (10.3), 199140K [recommended]
+        #    * macOS 10.14.1 Update
+        #        macOS 10.14.1 Update (10.14.1), 199140K [recommended] [restart]
+        #    * BridgeOSUpdateCustomer
+        #        BridgeOSUpdateCustomer (10.14.4.1.1.1555388607), 328394K, [recommended] [shut down]
+        #    - iCal-1.0.2
+        #        iCal, (1.0.2), 6520K
+        rexp = re.compile(
+            r'(?m)'  # Turn on multiline matching
+            r'^\s+[*-] '  # Name lines start with 3 spaces and either a * or a -.
+            r'(?P<name>.*)[\r\n]'  # The rest of that line is the name.
+            r'.*\((?P<version>[^ \)]*)'  # Capture the last parenthesized value on the next line.
+            r'[^\r\n\[]*(?P<recommended>\[recommended\])?\s?'  # Capture [recommended] if there.
+            r'(?P<action>\[(?:restart|shut down)\])?'  # Capture an action if present.
+        )
 
-    # Software Update Tool
-
-    # Software Update found the following new or updated software:
-    # * macOS High Sierra 10.13.6 Update-
-    #       macOS High Sierra 10.13.6 Update ( ), 1931648K [recommended] [restart]
-    # * iTunesX-12.8.2
-    #       iTunes (12.8.2), 273564K [recommended]
-
-    for line in output.splitlines():
-        if line.strip().startswith('*'):
-            item = {'date_managed': datetime.datetime.utcnow().isoformat() + 'Z'}
-            item['status'] = 'PENDING'
-            pending_items[line.strip()[2:]] = item
-
-    return pending_items
+    now = datetime.datetime.utcnow().isoformat() + 'Z'
+    return {
+        m.group('name'): {
+            'date_managed': now,
+            'status': 'PENDING',
+            'data': {
+                'version': m.group('version'),
+                'recommended': 'TRUE' if 'recommended' in m.group('recommended') else 'FALSE',
+                'action': _bracket_cleanup(m, 'action')
+            }
+        } for m in rexp.finditer(output)
+    }
 
 
-
+def _bracket_cleanup(match, key):
+    """Strip out [ and ] and uppercase SUS output"""
+    return re.sub(r'[\[\]]', '', match.group(key) or '').upper()
 
 
 if __name__ == "__main__":
