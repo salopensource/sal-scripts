@@ -21,7 +21,7 @@ def main():
     munki_submission = utils.get_checkin_results().get('munki', {})
     munki_report = get_managed_install_report()
 
-    extras = {'apple_results': {}}
+    extras = {}
     extras['munki_version'] = munki_report['MachineInfo'].get('munki_version')
     extras['manifest'] = munki_report.get('ManifestName')
     extras['runtype'] = munki_report.get('RunType', 'custom')
@@ -82,8 +82,9 @@ def main():
     # Process InstallResults and RemovalResults into update history
     for report_key, result_type in (('InstallResults', 'PRESENT'), ('RemovalResults', 'ABSENT')):
         for item in munki_report.get(report_key, []):
-            # history = {'name': item['name']}
-            # if item.get('applesus')
+            # Skip Apple software update items.
+            if item.get('applesus'):
+                continue
             history = {}
             # history = {'update_type': 'apple' if item.get('applesus') else 'third_party'}
             history['status'] = 'ERROR' if item.get('status') != 0 else result_type
@@ -91,19 +92,11 @@ def main():
             # Convert to the expected submission format of ISO in UTC.
             history['date_managed'] = item['time'].isoformat() + 'Z'
             history['data'] = {'version': item.get('version', '0')}
-            if item.get('applesus'):
-                # This information will be processed by the checkin
-                # code on the server. It's not easy to get from
-                # softwareupdate, and since Apple stuff is showing up in
-                # Munki output, it's safe to assume Munki is managing
-                # Apple SU as well.
-                munki_submission['extra_data']['apple_results'][item['name']] = history
+            # Add over top of any pending items we may have already built.
+            if item['name'] in munki_submission['managed_items']:
+                munki_submission['managed_items'][item['name']].update(history)
             else:
-                # Add over top of any pending items we may have already built.
-                if item['name'] in munki_submission['managed_items']:
-                    munki_submission['managed_items'][item['name']].update(history)
-                else:
-                    munki_submission['managed_items'][item['name']] = history
+                munki_submission['managed_items'][item['name']] = history
 
     utils.set_checkin_results('Munki', munki_submission)
 
