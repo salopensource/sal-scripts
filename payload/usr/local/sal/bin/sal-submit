@@ -246,7 +246,7 @@ def send_inventory(server_url, serial):
         serverhash, stderr = utils.curl(hash_url)
         if stderr:
             return
-        if serverhash != inventory_hash or True:
+        if serverhash != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
                 'serial': serial,
