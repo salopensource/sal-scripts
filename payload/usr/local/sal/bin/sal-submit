@@ -9,6 +9,7 @@ import argparse
 import logging
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -46,6 +47,7 @@ def main():
     run_type = get_run_type(submission)
     run_plugins(run_type)
 
+    remove_blacklisted_messages()
     remove_skipped_facts()
 
     server_url, _, machine_group_key = utils.get_server_prefs()
@@ -157,6 +159,34 @@ def get_plugin_results(plugin_results_plist):
         logging.warning('No external data plist found.')
 
     return results
+
+
+def remove_blacklisted_messages():
+    patterns = utils.pref('MessageBlacklistPatterns') or []
+    if patterns:
+        compiled = [re.compile(p) for p in patterns]
+        update = False
+        submission = utils.get_checkin_results()
+
+        for results in submission.values():
+            if not isinstance(results, dict):
+                # Handle any non-dict keys like plugin_results
+                continue
+
+            removals = []
+            for message in results.get('messages', []):
+                subject = message.get('text', '')
+                if any(p.search(subject) for p in compiled):
+                    removals.append(message)
+
+            if removals:
+                update = True
+                for removal in removals:
+                    logging.debug("Removing message: '%s'", removal)
+                    results['messages'].remove(removal)
+
+        if update:
+            utils.save_results(submission)
 
 
 def remove_skipped_facts():
