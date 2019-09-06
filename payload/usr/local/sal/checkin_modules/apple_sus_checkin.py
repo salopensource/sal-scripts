@@ -50,7 +50,7 @@ def get_sus_install_report():
 
 def get_sus_facts():
     result = {'checkin_module_version': __version__}
-    before_dump = datetime.datetime.utcnow()
+    history_limit = datetime.datetime.utcnow() - datetime.timedelta(days=1)
     cmd = ['softwareupdate', '--dump-state']
     try:
         subprocess.check_call(cmd)
@@ -82,7 +82,7 @@ def get_sus_facts():
             result['last_check'] = last_check_datetime.isoformat() + 'Z'
 
         log_time = _get_log_time(line)
-        if log_time and before_dump < log_time:
+        if log_time and log_time < history_limit:
             # Let's not look earlier than when we started
             # softwareupdate.
             break
