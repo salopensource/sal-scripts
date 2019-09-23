@@ -7,7 +7,8 @@ import sys
 import socket
 import urllib2
 
-sys.path[:0] = ['/usr/local/munki', '/usr/local/sal']
+sys.path[:0] = ['/usr/local/munki', '/usr/local/sal', '/usr/local/sal/checkin_modules']
+import munki_checkin
 import utils
 from munkilib import FoundationPlist, munkicommon
 
@@ -58,7 +59,7 @@ def check_server_online():
     if not utils.pref('SendOfflineReport'):
         return
     # read report
-    report = utils.get_managed_install_report()
+    report = munki_checkin.get_managed_install_report()
     # check for errors and warnings
     if not check_for_errors(report):
         utils.set_pref('LastRunWasOffline', False)
