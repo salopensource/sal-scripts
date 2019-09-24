@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ "$3" == "/" ]; then
     /bin/launchctl unload /Library/LaunchDaemons/com.salopensource.sal.runner.plist
