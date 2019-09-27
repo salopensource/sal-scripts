@@ -44,7 +44,7 @@ def process_system_profile():
     friendly_model = get_friendly_model(machine_results['serial'])
     if friendly_model:
         machine_results['machine_model_friendly'] = friendly_model
-    machine_results['cpu_type'] = system_profile['SPHardwareDataType'][0]['cpu_type']
+    machine_results['cpu_type'] = system_profile['SPHardwareDataType'][0].get('cpu_type', '')
     machine_results['cpu_speed'] = (
         system_profile['SPHardwareDataType'][0]['current_processor_speed'])
     machine_results['memory'] = system_profile['SPHardwareDataType'][0]['physical_memory']
