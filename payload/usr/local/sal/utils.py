@@ -293,6 +293,27 @@ def run_scripts(dir_path, cli_args=None):
     return results
 
 
+def run_preflight_scripts(dir_path, cli_args=None):
+    # Allow other Preflight scripts to stop managedsoftwareupdate
+    # from running
+    results = []
+    for script in os.listdir(dir_path):
+        script_stat = os.stat(os.path.join(dir_path, script))
+        if not script_stat.st_mode & stat.S_IWOTH:
+            cmd = [os.path.join(dir_path, script)]
+            if cli_args:
+                cmd.append(cli_args)
+            try:
+                subprocess.check_output(cmd, stdin=None)
+                results.append("'{}' ran successfully".format(script))
+            except (OSError, subprocess.CalledProcessError):
+                results.append("'{}' had errors during execution!".format(script))
+                sys.exit(1)
+        else:
+            results.append("'{}' is not executable or has bad permissions".format(script))
+    return results
+
+
 def get_server_prefs():
     """Get Sal preferences, bailing if required info is missing.
 
