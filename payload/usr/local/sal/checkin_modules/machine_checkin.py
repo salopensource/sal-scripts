@@ -39,6 +39,8 @@ def process_system_profile():
 
     machine_results['serial'] = system_profile['SPHardwareDataType'][0]['serial_number']
     os_version = system_profile['SPSoftwareDataType'][0]['os_version'].split()[1]
+    if os_version == 'X':
+        os_version = system_profile['SPSoftwareDataType'][0]['os_version'].split()[2]
     machine_results['operating_system'] = os_version
     machine_results['machine_model'] = system_profile['SPHardwareDataType'][0]['machine_model']
     friendly_model = get_friendly_model(machine_results['serial'])
