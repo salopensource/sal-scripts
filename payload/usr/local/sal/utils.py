@@ -22,7 +22,7 @@ from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPref
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 RESULTS_PATH = '/usr/local/sal/checkin_results.json'
-VERSION = '3.0.4'
+VERSION = '3.0.5'
 
 
 def sal_version():
