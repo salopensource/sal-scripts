@@ -275,7 +275,7 @@ def serializer(obj):
     return obj
 
 
-def run_scripts(dir_path, cli_args=None):
+def run_scripts(dir_path, cli_args=None, error=False):
     results = []
     for script in os.listdir(dir_path):
         script_stat = os.stat(os.path.join(dir_path, script))
@@ -284,10 +284,14 @@ def run_scripts(dir_path, cli_args=None):
             if cli_args:
                 cmd.append(cli_args)
             try:
-                subprocess.call(cmd, stdin=None)
+                subprocess.check_call(cmd, stdin=None)
                 results.append("'{}' ran successfully".format(script))
             except (OSError, subprocess.CalledProcessError):
-                results.append("'{}' had errors during execution!".format(script))
+                errormsg = "'{}' had errors during execution!".format(script)
+                if not error:
+                    results.append(errormsg)
+                else: 
+                    raise RuntimeError(errormsg) 
         else:
             results.append("'{}' is not executable or has bad permissions".format(script))
     return results

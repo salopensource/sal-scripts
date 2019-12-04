@@ -12,7 +12,10 @@ PREFLIGHT_DIR = '/usr/local/munki/preflight.d'
 
 
 def main():
-    utils.run_scripts(PREFLIGHT_DIR, sys.argv[1])
+    try:
+        utils.run_scripts(PREFLIGHT_DIR, sys.argv[1], error=True)
+    except RuntimeError as e:
+        sys.exit(e)
 
 
 if __name__ == "__main__":
