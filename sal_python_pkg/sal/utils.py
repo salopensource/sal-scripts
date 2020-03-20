@@ -7,14 +7,12 @@ import datetime
 import hashlib
 import json
 import os
+import plistlib
 import stat
 import subprocess
-import sys
 import time
-import urllib
+import urllib.parse
 
-sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
                         CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
                         NSDictionary, NSData)
@@ -199,7 +197,7 @@ def get_file_and_hash(path):
 
 def send_report(url, form_data=None, json_data=None, json_path=None):
     if form_data:
-        stdout, stderr = curl(url, data=urllib.urlencode(form_data))
+        stdout, stderr = curl(url, data=urllib.parse.urlencode(form_data))
     elif json_data:
         raise NotImplementedError
     elif json_path:
@@ -220,14 +218,14 @@ def add_plugin_results(plugin, data, historical=False):
         historical (bool): Whether to keep only one record (False) or
             all results (True). Optional, defaults to False.
     """
-    plist_path = '/usr/local/sal/plugin_results.plist'
-    if os.path.exists(plist_path):
-        plugin_results = FoundationPlist.readPlist(plist_path)
+    plist_path = pathlib.Path('/usr/local/sal/plugin_results.plist')
+    if plist_path.exists():
+        plugin_results = plistlib.loads(plist_path.read_bytes())
     else:
         plugin_results = []
 
     plugin_results.append({'plugin': plugin, 'historical': historical, 'data': data})
-    FoundationPlist.writePlist(plugin_results, plist_path)
+    plist_path.write_bytes(plistlib.dumps(plugin_results))
 
 
 def get_checkin_results():
@@ -306,7 +304,7 @@ def get_server_prefs():
 
     for key, val in required_prefs.items():
         if not val:
-            sys.exit('Required Sal preference "{}" is not set.'.format(key))
+            exit(f'Required Sal preference "{key}" is not set.')
 
     # Get optional preferences.
     name_type = pref('NameType', default='ComputerName')
@@ -321,7 +319,7 @@ def unobjctify(plist_data):
     elif isinstance(plist_data, NSDictionary):
         return {k: unobjctify(v) for k, v in plist_data.items()}
     elif isinstance(plist_data, NSData):
-        return u'<RAW DATA>'
+        return '<RAW DATA>'
     elif isinstance(plist_data, NSDate):
         # NSDate.description is in UTC, so drop the offset and we'll
         # add it back in when serializing to JSON.
