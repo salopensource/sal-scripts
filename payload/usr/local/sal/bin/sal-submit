@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 """sal-submit
 
 Coordinates running checkin modules and submitting their results to Sal.
@@ -18,8 +18,7 @@ import time
 
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
-sys.path.insert(0, '/usr/local/sal')
-import utils
+import sal
 
 
 CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
@@ -28,37 +27,37 @@ CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 def main():
     logging.basicConfig(
         level=get_log_level(), format='%(asctime)s %(levelname)s %(message)s')
-    logging.info("%s Version: %s", os.path.basename(__file__), utils.sal_version())
+    logging.info("%s Version: %s", os.path.basename(__file__), sal.sal_version())
 
     exit_if_not_root()
-    if utils.python_script_running('sal-submit'):
+    if sal.python_script_running('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
 
     time.sleep(1)
-    if utils.python_script_running('managedsoftwareupdate'):
+    if sal.python_script_running('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
     logging.info('Processing checkin modules...')
-    script_results = utils.run_scripts(CHECKIN_MODULES_DIR)
+    script_results = sal.run_scripts(CHECKIN_MODULES_DIR)
     for message in script_results:
         logging.debug(message)
 
-    submission = utils.get_checkin_results()
+    submission = sal.get_checkin_results()
     run_type = get_run_type(submission)
     run_plugins(run_type)
 
     remove_blacklisted_messages()
     remove_skipped_facts()
 
-    server_url, _, machine_group_key = utils.get_server_prefs()
+    server_url, _, machine_group_key = sal.get_server_prefs()
     if logging.getLogger().level <= 10:
-        submission = utils.get_checkin_results()
+        submission = sal.get_checkin_results()
         logging.debug('Checkin submission:')
-        logging.debug(json.dumps(submission, indent=4, default=utils.serializer))
+        logging.debug(json.dumps(submission, indent=4, default=sal.serializer))
     _, errors = send_checkin(server_url)
 
     if not errors:
-        utils.clean_results()
+        sal.clean_results()
 
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
@@ -117,7 +116,7 @@ def run_plugins(run_type):
     finally:
         if os.path.exists(plugin_results_path):
             os.remove(plugin_results_path)
-    utils.set_checkin_results('plugin_results', plugin_results)
+    sal.set_checkin_results('plugin_results', plugin_results)
 
 
 def run_external_scripts(run_type):
@@ -153,7 +152,7 @@ def get_plugin_results(plugin_results_plist):
             logging.warning('Could not read external data plist.')
             return results
 
-        results = utils.unobjctify(plist_data)
+        results = sal.unobjctify(plist_data)
 
     else:
         logging.warning('No external data plist found.')
@@ -162,11 +161,11 @@ def get_plugin_results(plugin_results_plist):
 
 
 def remove_blacklisted_messages():
-    patterns = utils.pref('MessageBlacklistPatterns') or []
+    patterns = sal.pref('MessageBlacklistPatterns') or []
     if patterns:
         compiled = [re.compile(p) for p in patterns]
         update = False
-        submission = utils.get_checkin_results()
+        submission = sal.get_checkin_results()
 
         for results in submission.values():
             if not isinstance(results, dict):
@@ -186,14 +185,14 @@ def remove_blacklisted_messages():
                     results['messages'].remove(removal)
 
         if update:
-            utils.save_results(submission)
+            sal.save_results(submission)
 
 
 def remove_skipped_facts():
-    skip_facts = utils.pref('SkipFacts')
+    skip_facts = sal.pref('SkipFacts')
     if skip_facts:
         update = False
-        submission = utils.get_checkin_results()
+        submission = sal.get_checkin_results()
 
         for results in submission.values():
             if not isinstance(results, dict):
@@ -212,14 +211,14 @@ def remove_skipped_facts():
                     results['facts'].pop(removal)
 
         if update:
-            utils.save_results(submission)
+            sal.save_results(submission)
 
 
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
     logging.debug("Sending report to {}".format(checkinurl))
     logging.debug("Checkin Response:")
-    out, error = utils.send_report(checkinurl, json_path=utils.RESULTS_PATH)
+    out, error = sal.send_report(checkinurl, json_path=sal.RESULTS_PATH)
     log(out, error)
     return out, error
 
@@ -240,19 +239,19 @@ def send_inventory(server_url, serial):
     inventory_plist = os.path.join(managed_install_dir, 'ApplicationInventory.plist')
     logging.debug('ApplicationInventory.plist Path: %s', inventory_plist)
 
-    inventory, inventory_hash = utils.get_file_and_hash(inventory_plist)
+    inventory, inventory_hash = sal.get_file_and_hash(inventory_plist)
     if inventory:
         serverhash = None
-        serverhash, stderr = utils.curl(hash_url)
+        serverhash, stderr = sal.curl(hash_url)
         if stderr:
             return
         if serverhash != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
                 'serial': serial,
-                'base64bz2inventory': utils.submission_encode(inventory)}
+                'base64bz2inventory': sal.submission_encode(inventory)}
             logging.debug("Inventory report response:")
-            out, error = utils.send_report(inventory_submit_url, form_data=inventory_submission)
+            out, error = sal.send_report(inventory_submit_url, form_data=inventory_submission)
             log(out, error)
 
 
@@ -268,15 +267,15 @@ def send_catalogs(server_url, machine_group_key):
         for catalog_file in os.listdir(catalog_dir):
             # don't operate on hidden files (.DS_Store etc)
             if not catalog_file.startswith('.'):
-                _, catalog_hash = utils.get_file_and_hash(catalog_file)
+                _, catalog_hash = sal.get_file_and_hash(catalog_file)
                 check_list.append({'name': catalog_file, 'sha256hash': catalog_hash})
 
         catalog_check_plist = FoundationPlist.writePlistToString(check_list)
 
     hash_submission = {
         'key': machine_group_key,
-        'catalogs': utils.submission_encode(catalog_check_plist)}
-    response, stderr = utils.send_report(hash_url, form_data=hash_submission)
+        'catalogs': sal.submission_encode(catalog_check_plist)}
+    response, stderr = sal.send_report(hash_url, form_data=hash_submission)
 
     if stderr is not None:
         try:
@@ -286,16 +285,16 @@ def send_catalogs(server_url, machine_group_key):
 
         for catalog in check_list:
             if catalog not in remote_data:
-                contents, _ = utils.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
+                contents, _ = sal.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
                 catalog_submission = {
                     'key': machine_group_key,
-                    'base64bz2catalog': utils.submission_encode(contents),
+                    'base64bz2catalog': sal.submission_encode(contents),
                     'name': catalog['name'],
                     'sha256hash': catalog['sha256hash']}
 
                 logging.debug("Submitting Catalog: %s", catalog['name'])
                 try:
-                    out, error = utils.send_report(catalog_submit_url, form_data=catalog_submission)
+                    out, error = sal.send_report(catalog_submit_url, form_data=catalog_submission)
                     log(out, error)
                 except OSError:
                     logging.warning("Error while submitting Catalog: %s", catalog['name'])
@@ -316,16 +315,16 @@ def send_profiles(server_url, serial):
         logging.warning("Couldn't output profiles.")
         return
 
-    profiles, _ = utils.get_file_and_hash(profile_out)
+    profiles, _ = sal.get_file_and_hash(profile_out)
 
     os.remove(profile_out)
 
     profile_submission = {
         'serial': serial,
-        'base64bz2profiles': utils.submission_encode(profiles)}
+        'base64bz2profiles': sal.submission_encode(profiles)}
 
     logging.debug("Profiles Response:")
-    out, error = utils.send_report(profile_submit_url, form_data=profile_submission)
+    out, error = sal.send_report(profile_submit_url, form_data=profile_submission)
     log(out, error)
 
 
