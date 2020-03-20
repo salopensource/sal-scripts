@@ -2,6 +2,7 @@
 
 
 import argparse
+import dbm
 import os
 import re
 import shelve
@@ -13,18 +14,10 @@ from xml.etree import ElementTree
 DBPATH = "/usr/local/sal/macmodelshelf"
 
 
-def print8(*args):
-    print " ".join(unicode(x).encode(u"utf-8") for x in args)
-
-def printerr8(*args):
-    print >>sys.stderr, " ".join(unicode(x).encode(u"utf-8") for x in args)
-
-
 try:
     macmodelshelf = shelve.open(DBPATH)
-except BaseException, e:
-    printerr8(u"Couldn't open macmodelshelf.db: %s" % unicode(e))
-    sys.exit(1)
+except dbm.error as exception:
+    exit(f"Couldn't open macmodelshelf.db: {exception}")
 
 
 def model_code(serial):
