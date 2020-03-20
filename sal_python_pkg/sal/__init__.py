@@ -1,1 +1,1 @@
-import sal.utils
+from sal.utils import *
