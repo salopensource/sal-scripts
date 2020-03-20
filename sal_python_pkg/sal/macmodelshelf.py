@@ -6,7 +6,7 @@ import os
 import re
 import shelve
 import sys
-import urllib2
+import urllib
 from xml.etree import ElementTree
 
 
@@ -39,7 +39,8 @@ def model_code(serial):
 
 def lookup_mac_model_code_from_apple(model_code):
     try:
-        f = urllib2.urlopen("http://support-sp.apple.com/sp/product?cc=%s&lang=en_US" % model_code, timeout=2)
+        f = urllib.urlopen(
+            "http://support-sp.apple.com/sp/product?cc=%s&lang=en_US" % model_code, timeout=2)
         et = ElementTree.parse(f)
         return et.findtext("configCode").decode("utf-8")
     except:
