@@ -1,13 +1,13 @@
-#!/usr/bin/env python
+#!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 
 
-import sys
-import os
 import argparse
+import os
+import re
 import shelve
+import sys
 import urllib2
 from xml.etree import ElementTree
-import re
 
 
 DBPATH = "/usr/local/sal/macmodelshelf"
@@ -35,7 +35,7 @@ def model_code(serial):
     if len(serial) in (11, 12):
         return serial[8:].decode("ascii")
     return None
-    
+
 
 def lookup_mac_model_code_from_apple(model_code):
     try:
@@ -44,7 +44,7 @@ def lookup_mac_model_code_from_apple(model_code):
         return et.findtext("configCode").decode("utf-8")
     except:
         return None
-    
+
 
 CLEANUP_RES = [
     (re.compile(ur"inch ? "), u"inch, "),
@@ -54,7 +54,7 @@ def cleanup_model(model):
     for pattern, replacement in CLEANUP_RES:
         model = pattern.sub(replacement, model)
     return model
-    
+
 
 def model(code, cleanup=True):
     global macmodelshelf
@@ -72,7 +72,7 @@ def model(code, cleanup=True):
         return cleanup_model(model)
     else:
         return model
-    
+
 
 def _dump(cleanup=True, format=u"json"):
     assert format in (u"python", u"json", u"markdown")
@@ -98,13 +98,13 @@ def _dump(cleanup=True, format=u"json"):
         print8(u"\n".join(u'`%s` | %s' % (code, clean(macmodelshelf[code])) for code in items))
 
 
-def main(argv):   
+def main(argv):
     p = argparse.ArgumentParser()
     p.add_argument(u"-n", u"--no-cleanup", action=u"store_false",
                    dest=u"cleanup", help=u"Don't clean up model strings.")
     p.add_argument(u"code", help=u"Serial number or model code")
     args = p.parse_args([x.decode(u"utf-8") for x in argv[1:]])
-    
+
     dump_format = {
         u"dump": u"python",
         u"dump-python": u"python",
@@ -114,7 +114,7 @@ def main(argv):
     if args.code in dump_format.keys():
         _dump(args.cleanup, dump_format[args.code])
         return 0
-    
+
     if len(args.code) in (11, 12, 13):
         m = model(model_code(args.code), cleanup=args.cleanup)
     else:
