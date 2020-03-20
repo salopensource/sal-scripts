@@ -6,8 +6,8 @@ import dbm
 import os
 import re
 import shelve
+import subprocess
 import sys
-import urllib
 from xml.etree import ElementTree
 
 
@@ -31,13 +31,17 @@ def model_code(serial):
 
 
 def lookup_mac_model_code_from_apple(model_code):
+    tree = ElementTree.ElementTree()
     try:
-        f = urllib.urlopen(
-            "http://support-sp.apple.com/sp/product?cc=%s&lang=en_US" % model_code, timeout=2)
-        et = ElementTree.parse(f)
-        return et.findtext("configCode").decode("utf-8")
-    except:
-        return None
+        response = subprocess.check_output(
+            ['curl', f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US"])
+    except subprocess.CalledProcessError:
+        pass
+    try:
+        tree = ElementTree.fromstring(response.decode())
+    except ElementTree.ParseError:
+        pass
+    return tree.findtext("configCode")
 
 
 CLEANUP_RES = [
