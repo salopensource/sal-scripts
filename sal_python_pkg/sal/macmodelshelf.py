@@ -22,12 +22,14 @@ except dbm.error as exception:
 
 def model_code(serial):
     if "serial" in serial.lower(): # Workaround for machines with dummy serial numbers.
-        return None
-    if len(serial) in (12, 13) and serial.startswith("S"): # Remove S prefix from scanned codes.
-        serial = serial[1:]
-    if len(serial) in (11, 12):
-        return serial[8:].decode("ascii")
-    return None
+        return
+
+    if 12 <= len(serial) <= 13:
+        if serial.startswith("S"):
+            # Remove S prefix from scanned codes.
+            serial = serial[1:]
+        return serial[8:]
+    return
 
 
 def lookup_mac_model_code_from_apple(model_code):
