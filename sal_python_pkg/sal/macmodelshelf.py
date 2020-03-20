@@ -41,8 +41,8 @@ def lookup_mac_model_code_from_apple(model_code):
 
 
 CLEANUP_RES = [
-    (re.compile(ur"inch ? "), u"inch, "),
-    (re.compile(ur"  "), u" "),
+    (re.compile(r"inch ? "), "inch, "),
+    (re.compile(r"  "), " "),
 ]
 def cleanup_model(model):
     for pattern, replacement in CLEANUP_RES:
@@ -58,7 +58,7 @@ def model(code, cleanup=True):
     try:
         model = macmodelshelf[code]
     except KeyError:
-        printerr8(u"Looking up %s from Apple" % code)
+        print(f"Looking up {code} from Apple", file=sys.stderr)
         model = lookup_mac_model_code_from_apple(code)
         if model:
             macmodelshelf[code] = model
@@ -78,48 +78,49 @@ def _dump(cleanup=True, format=u"json"):
     items = macmodelshelf.keys()
     items.sort()
     items.sort(key=len)
-    if format == u"python":
-        print8(u"macmodelshelfdump = {")
-        print8(u",\n".join([u'    "%s": "%s"' % (code, clean(macmodelshelf[code])) for code in items]))
-        print8(u"}")
-    elif format == u"json":
-        print8(u"{")
-        print8(u",\n".join([u'    "%s": "%s"' % (code, clean(macmodelshelf[code])) for code in items]))
-        print8(u"}")
-    elif format == u"markdown":
-        print8(u"Code | Model")
-        print8(u":--- | :---")
-        print8(u"\n".join(u'`%s` | %s' % (code, clean(macmodelshelf[code])) for code in items))
+    if format == "python":
+        print("macmodelshelfdump = {")
+        print(",\n".join([f'    "{code}": "{clean(macmodelshelf[code])}"' for code in items]))
+        print("}")
+    elif format == "json":
+        print("{")
+        print(",\n".join([f'    "{code}": "{clean(macmodelshelf[code])}"' for code in items]))
+        print("}")
+    elif format == "markdown":
+        print("Code | Model")
+        print(":--- | :---")
+        print("\n".join('`{code}` | {clean(macmodelshelf[code])}' for code in items))
 
 
-def main(argv):
-    p = argparse.ArgumentParser()
-    p.add_argument(u"-n", u"--no-cleanup", action=u"store_false",
-                   dest=u"cleanup", help=u"Don't clean up model strings.")
-    p.add_argument(u"code", help=u"Serial number or model code")
-    args = p.parse_args([x.decode(u"utf-8") for x in argv[1:]])
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-n", "--no-cleanup", action="store_false", dest="cleanup",
+        help="Don't clean up model strings.")
+    parser.add_argument("code", help="Serial number or model code")
+    args = parser.parse_args()
 
     dump_format = {
-        u"dump": u"python",
-        u"dump-python": u"python",
-        u"dump-json": u"json",
-        u"dump-markdown": u"markdown",
+        "dump": "python",
+        "dump-python": "python",
+        "dump-json": "json",
+        "dump-markdown": "markdown",
     }
-    if args.code in dump_format.keys():
+    if args.code in dump_format:
         _dump(args.cleanup, dump_format[args.code])
-        return 0
+        exit()
 
-    if len(args.code) in (11, 12, 13):
-        m = model(model_code(args.code), cleanup=args.cleanup)
+    if 11 <= len(args.code) <= 13:
+        result = model(model_code(args.code), cleanup=args.cleanup)
     else:
-        m = model(args.code, cleanup=args.cleanup)
-    if m:
-        print m
-        return 0
+        result = model(args.code, cleanup=args.cleanup)
+    if result:
+        print(result)
+        exit()
     else:
-        printerr8(u"Unknown model %s" % repr(args.code))
-        return os.EX_UNAVAILABLE
+        print(f"Unknown model {args.code}", file=sys.stderr)
+        exit(os.EX_UNAVAILABLE)
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    main()
