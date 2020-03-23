@@ -1,58 +1,47 @@
-#!/usr/bin/python
+#!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 
 
-import subprocess
-import optparse
-import os
-import time
+import argparse
+import pathlib
 import random
 import stat
+import subprocess
+import time
 
 
-def get_options():
+def main():
+    args = get_args()
+    random_delay(args.delay)
+    execute_path(args.path)
+
+
+def get_args():
     """Return commandline options."""
-    usage = "%prog [options]"
-    option_parser = optparse.OptionParser(usage=usage)
-    option_parser.add_option(
-        "--delay", default=0, type=int,
-        help="Delay running for between 0 and N seconds.")
-    option_parser.add_option(
-        "--path", default='/usr/local/sal/bin/sal-submit', type=str,
-        help="Path to script to run")
-    # We have no arguments, so don't store the results.
-    opts, _ = option_parser.parse_args()
-    return opts
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--delay', default=0, type=int, help="Delay running for between 0 and N seconds.")
+    parser.add_argument(
+        "--path", default='/usr/local/sal/bin/sal-submit', type=str, help="Path to script to run")
+    return parser.parse_args()
 
 
 def random_delay(delay):
     if delay == 0:
-        print 'No delay set'
+        print('No delay set')
         return
     randomized_delay = random.randrange(0, delay)
-    print "Delaying run by %s seconds" % randomized_delay
+    print(f"Delaying run by {randomized_delay} seconds")
     time.sleep(randomized_delay)
 
 
 def execute_path(path):
-    path_stat = os.stat(path)
-    if not path_stat.st_mode & stat.S_IWOTH:
-        try:
-            subprocess.call([path], stdin=None)
-        except (OSError, subprocess.CalledProcessError):
-            print "'{}' had errors during execution!".format(path)
-    else:
-        print "'{}' is not executable or has bad permissions".format(path)
-
-
-def main():
-    opts = get_options()
-    path = opts.path
-    delay = opts.delay
-
-    if delay > 0:
-        random_delay(delay)
-
-    execute_path(path)
+    path_stat = pathlib.Path(path).stat()
+    if path_stat.st_mode & stat.S_IWOTH:
+        exit(f"'{path}' is not executable or has bad permissions")
+    try:
+        subprocess.call([path])
+    except (OSError, subprocess.CalledProcessError):
+        exit(f"'{path}' had errors during execution!")
 
 
 if __name__ == '__main__':
