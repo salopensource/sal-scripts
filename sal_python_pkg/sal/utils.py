@@ -303,9 +303,8 @@ def get_server_prefs():
 def unobjctify(element, safe=False):
     """Recursively convert nested elements to native python datatypes.
 
-    Types accepted include str, unicode, int, float, bool, None, NSNull,
-    list, dict, set, tuple, NSArray, NSDictionary, NSData, NSDate,
-    NSNull, and None.
+    Types accepted include str, bytes, int, float, bool, None, list,
+    dict, set, tuple, NSArray, NSDictionary, NSData, NSDate, NSNull.
 
     element: Some (potentially) nested data you want to convert.
 
@@ -326,7 +325,7 @@ def unobjctify(element, safe=False):
     raises: ValueError for any data that isn't supported (yet!) by this
         function.
     """
-    supported_types = (basestring, int, float, bool)
+    supported_types = (str, bytes, int, float, bool)
     if isinstance(element, supported_types):
         return element
     elif isinstance(element, (dict, NSDictionary)):
