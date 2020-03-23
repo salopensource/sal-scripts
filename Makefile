@@ -1,6 +1,6 @@
 USE_PKGBUILD=1
 include /usr/local/share/luggage/luggage.make
-PACKAGE_VERSION:=$(shell sed -n -e '/^VERSION/p' sal_python_pkg/sal/utils.py | cut -d "'" -f 2)
+PACKAGE_VERSION:=$(shell sed -n -e '/^__version__/p' sal_python_pkg/sal/version.py | cut -d "'" -f 2)
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
 REVERSE_DOMAIN=com.github.salopensource

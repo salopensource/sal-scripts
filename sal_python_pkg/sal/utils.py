@@ -20,11 +20,6 @@ from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPref
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 RESULTS_PATH = '/usr/local/sal/checkin_results.json'
-VERSION = '3.0.5'
-
-
-def sal_version():
-    return VERSION
 
 
 def set_pref(pref_name, pref_value):
@@ -34,12 +29,12 @@ def set_pref(pref_name, pref_value):
     /Library/Preferences/com.github.salopensource.sal.plist.  This should
     normally be used only for 'bookkeeping' values; values that control
     the behavior of munki may be overridden elsewhere (by MCX, for
-    example)"""
+    example)
+    """
     try:
         CFPreferencesSetValue(
             pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
         CFPreferencesAppSynchronize(BUNDLE_ID)
-
     except Exception:
         pass
 

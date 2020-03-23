@@ -27,7 +27,7 @@ CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 def main():
     logging.basicConfig(
         level=get_log_level(), format='%(asctime)s %(levelname)s %(message)s')
-    logging.info("%s Version: %s", os.path.basename(__file__), sal.sal_version())
+    logging.info("%s Version: %s", os.path.basename(__file__), sal.__version__)
 
     exit_if_not_root()
     if sal.python_script_running('sal-submit'):
