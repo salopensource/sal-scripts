@@ -2,6 +2,7 @@
 
 
 import base64
+import binascii
 import bz2
 import datetime
 import hashlib
@@ -15,12 +16,12 @@ import urllib.parse
 
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
                         CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
-                        NSDictionary, NSData)
+                        NSDictionary, NSData, NSNull)
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 RESULTS_PATH = '/usr/local/sal/checkin_results.json'
-
+ISO_TIME_FORMAT = '%Y-%m-%d %H:%M:%S %z'
 
 def set_pref(pref_name, pref_value):
     """Sets a Sal preference.
@@ -307,19 +308,53 @@ def get_server_prefs():
     return required_prefs["server_url"], name_type, required_prefs["key"]
 
 
-def unobjctify(value):
-    """Recursively convert pyobjc types to native python"""
-    if isinstance(value, NSArray):
-        return [unobjctify(i) for i in value]
-    elif isinstance(value, NSDictionary):
-        return {k: unobjctify(v) for k, v in value.items()}
-    elif isinstance(value, NSData):
-        return '<RAW DATA>'
-    elif isinstance(value, NSDate):
-        # NSDate.description is in UTC, and is in ISO format.
-        return datetime.datetime.strptime(value.description(), '%Y-%m-%d %H:%M:%S %z')
-    # bools, floats, and ints seem to be covered.
-    return value
+def unobjctify(element, safe=False):
+    """Recursively convert nested elements to native python datatypes.
+
+    Types accepted include str, unicode, int, float, bool, None, NSNull,
+    list, dict, set, tuple, NSArray, NSDictionary, NSData, NSDate,
+    NSNull, and None.
+
+    element: Some (potentially) nested data you want to convert.
+
+    safe: Bool (defaults to False) whether you want printable
+        representations instead of the python equivalent. e.g.  NSDate
+        safe=True becomes a str, safe=False becomes a datetime.datetime.
+        NSData safe=True bcomes a hex str, safe=False becomes bytes. Any
+        type not explicitly handled by this module will raise an
+        exception unless safe=True, where it will instead replace the
+        data with a str of '<UNSUPPORTED TYPE>'
+
+        This is primarily for safety in serialization to plists or
+        output.
+
+    returns: Python equivalent of the original input.
+        e.g. NSArray -> List, NSDictionary -> Dict, etc.
+
+    raises: ValueError for any data that isn't supported (yet!) by this
+        function.
+    """
+    supported_types = (basestring, int, float, bool)
+    if isinstance(element, supported_types):
+        return element
+    elif isinstance(element, (dict, NSDictionary)):
+        return {k: unobjctify(v, safe=safe) for k, v in element.items()}
+    elif isinstance(element, (list, NSArray)):
+        return [unobjctify(i, safe=safe) for i in element]
+    elif isinstance(element, set):
+        return set([unobjctify(i, safe=safe) for i in element])
+    elif isinstance(element, tuple):
+        return tuple([unobjctify(i, safe=safe) for i in element])
+    elif isinstance(element, NSData):
+        return binascii.hexlify(element) if safe else bytes(element)
+    elif isinstance(element, NSDate):
+        return str(element) if safe else datetime.datetime.strptime(
+            element.description(), ISO_TIME_FORMAT)
+    elif isinstance(element, NSNull) or element is None:
+        return '' if safe else None
+    elif safe:
+        return '<UNSUPPORTED TYPE>'
+    raise ValueError(f"Element type '{type(element)}' is not supported!")
 
 
 def submission_encode(text):
