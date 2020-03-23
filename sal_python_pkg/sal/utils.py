@@ -48,6 +48,10 @@ def pref(pref_name, default=None):
         - /var/root/Library/Preferences/com.github.salopensource.sal.plist
         - /Library/Preferences/com.github.salopensource.sal.plist
         - default_prefs defined here.
+
+    Returned values are all converted to native python types through the
+    `unobjctify` function; e.g. dates are returned as aware-datetimes,
+    NSDictionary to dict, etc.
     """
     default_prefs = {
         'ServerURL': 'http://sal',
@@ -71,11 +75,7 @@ def pref(pref_name, default=None):
         # discoverability
         set_pref(pref_name, pref_value)
 
-    if isinstance(pref_value, NSDate):
-        # convert NSDate/CFDates to strings
-        pref_value = str(pref_value)
-
-    return pref_value
+    return unobjctify(pref_value)
 
 
 def python_script_running(scriptname):
@@ -316,10 +316,8 @@ def unobjctify(value):
     elif isinstance(value, NSData):
         return '<RAW DATA>'
     elif isinstance(value, NSDate):
-        # NSDate.description is in UTC, so drop the offset and we'll
-        # add it back in when serializing to JSON.
-        date_as_iso_string = value.description().rsplit(' ', 1)[0]
-        return datetime.datetime.strptime(date_as_iso_string, '%Y-%m-%d %H:%M:%S')
+        # NSDate.description is in UTC, and is in ISO format.
+        return datetime.datetime.strptime(value.description(), '%Y-%m-%d %H:%M:%S %z')
     # bools, floats, and ints seem to be covered.
     return value
 
