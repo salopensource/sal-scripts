@@ -30,11 +30,9 @@ def main():
     logging.info("%s Version: %s", os.path.basename(__file__), sal.__version__)
 
     exit_if_not_root()
-    if sal.python_script_running('sal-submit'):
+    if sal.wait_for_script('sal-submit'):
         sys.exit('Another instance of sal-submit is already running. Exiting.')
-
-    time.sleep(1)
-    if sal.python_script_running('managedsoftwareupdate'):
+    if sal.wait_for_script('managedsoftwareupdate'):
         sys.exit('managedsoftwareupdate is running. Exiting.')
 
     logging.info('Processing checkin modules...')

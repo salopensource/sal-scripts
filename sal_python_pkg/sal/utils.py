@@ -79,39 +79,31 @@ def pref(pref_name, default=None):
     return unobjctify(pref_value)
 
 
-def python_script_running(scriptname):
-    """Tests if a script is running.
-
-    If it is found running, it will try up to two more times to see if it has exited.
-    """
-    counter = 0
-    pid = 0
-    while True:
-        if counter == 3:
-            return pid
-        pid = check_script_running(scriptname)
-        if not pid:
-            return pid
+def wait_for_script(scriptname, repeat=3, pause=1):
+    """Tries a few times to wait for a script to finish."""
+    count = 0
+    while count < repeat:
+        if script_is_running(scriptname):
+            time.sleep(pause)
+            counter += 1
         else:
-            time.sleep(1)
-            counter = counter + 1
+            return False
+    return True
 
 
-def check_script_running(scriptname):
-    """
-    Returns Process ID for a running python script.
+def script_is_running(scriptname):
+    """Returns Process ID for a running python script.
+
     Not at all stolen from Munki. Honest.
     """
     cmd = ['/bin/ps', '-eo', 'pid=,command=']
-    proc = subprocess.Popen(cmd, shell=False, bufsize=1,
-                            stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    (out, dummy_err) = proc.communicate()
+    proc = subprocess.Popen(
+        cmd, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out, _ = proc.communicate()
     mypid = os.getpid()
-    lines = str(out).splitlines()
-    for line in lines:
+    for line in out.splitlines():
         try:
-            (pid, process) = line.split(None, 1)
+            pid, process = line.split(maxsplit=1)
         except ValueError:
             # funky process line, so we'll skip it
             pass
@@ -119,21 +111,21 @@ def check_script_running(scriptname):
             args = process.split()
             try:
                 # first look for Python processes
-                if (args[0].find('MacOS/Python') != -1 or
-                        args[0].find('python') != -1):
+                if 'MacOS/Python' in args[0] or 'python' in args[0]:
                     # look for first argument being scriptname
-                    if args[1].find(scriptname) != -1:
+                    if scriptname in args[1]:
                         try:
-                            if int(pid) != int(mypid):
-                                return pid
+                            if int(pid) != mypid:
+                                return True
                         except ValueError:
                             # pid must have some funky characters
                             pass
             except IndexError:
                 pass
+
     # if we get here we didn't find a Python script with scriptname
     # (other than ourselves)
-    return 0
+    return False
 
 
 def curl(url, data=None, json_path=None):
