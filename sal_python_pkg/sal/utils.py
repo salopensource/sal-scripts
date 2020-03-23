@@ -307,21 +307,21 @@ def get_server_prefs():
     return required_prefs["server_url"], name_type, required_prefs["key"]
 
 
-def unobjctify(plist_data):
+def unobjctify(value):
     """Recursively convert pyobjc types to native python"""
-    if isinstance(plist_data, NSArray):
-        return [unobjctify(i) for i in plist_data]
-    elif isinstance(plist_data, NSDictionary):
-        return {k: unobjctify(v) for k, v in plist_data.items()}
-    elif isinstance(plist_data, NSData):
+    if isinstance(value, NSArray):
+        return [unobjctify(i) for i in value]
+    elif isinstance(value, NSDictionary):
+        return {k: unobjctify(v) for k, v in value.items()}
+    elif isinstance(value, NSData):
         return '<RAW DATA>'
-    elif isinstance(plist_data, NSDate):
+    elif isinstance(value, NSDate):
         # NSDate.description is in UTC, so drop the offset and we'll
         # add it back in when serializing to JSON.
-        date_as_iso_string = plist_data.description().rsplit(' ', 1)[0]
+        date_as_iso_string = value.description().rsplit(' ', 1)[0]
         return datetime.datetime.strptime(date_as_iso_string, '%Y-%m-%d %H:%M:%S')
     # bools, floats, and ints seem to be covered.
-    return plist_data
+    return value
 
 
 def submission_encode(text):
