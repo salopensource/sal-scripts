@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 
 
 import datetime
