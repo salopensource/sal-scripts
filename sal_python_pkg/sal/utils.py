@@ -71,7 +71,7 @@ def pref(pref_name, default=None):
     }
 
     pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value is None and default:
+    if pref_value is None and default is not None:
         pref_value = default
     elif pref_value is None and pref_name in default_prefs:
         pref_value = default_prefs.get(pref_name)
