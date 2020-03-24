@@ -9,6 +9,8 @@ import argparse
 import logging
 import json
 import os
+import pathlib
+import plistlib
 import re
 import stat
 import subprocess
@@ -62,9 +64,7 @@ def main():
         send_catalogs(server_url, machine_group_key)
         send_profiles(server_url, submission['Machine']['extra_data']['serial'])
 
-    touchfile = '/Users/Shared/.com.salopensource.sal.run'
-    if os.path.exists(touchfile):
-        os.remove(touchfile)
+    pathlib.Path('/Users/Shared/.com.salopensource.sal.run').unlink(missing_ok=True)
 
     logging.info('Checkin complete.')
 
@@ -104,37 +104,31 @@ def get_run_type(submission):
 
 def run_plugins(run_type):
     logging.info('Processing plugins...')
-    plugin_results_path = '/usr/local/sal/plugin_results.plist'
+    plugin_results_path = pathlib.Path('/usr/local/sal/plugin_results.plist')
     try:
         run_external_scripts(run_type)
         plugin_results = get_plugin_results(plugin_results_path)
     finally:
-        if os.path.exists(plugin_results_path):
-            os.remove(plugin_results_path)
+        plugin_results_path.unlink(missing_ok=True)
     sal.set_checkin_results('plugin_results', plugin_results)
 
 
 def run_external_scripts(run_type):
-    external_scripts_dir = '/usr/local/sal/external_scripts'
+    external_scripts_dir = pathlib.Path('/usr/local/sal/external_scripts')
 
-    if os.path.exists(external_scripts_dir):
-        for root, _, files in os.walk(external_scripts_dir, topdown=False):
-            for script in files:
-                script_path = os.path.join(root, script)
-
-                script_stat = os.stat(script_path)
-                executable = script_stat.st_mode & stat.S_IXUSR
-                if executable:
-                    try:
-                        subprocess.check_call(
-                            [script_path, run_type], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                        logging.debug("%s ran successfuly.", script_path)
-                    except OSError:
-                        logging.warning("Couldn't run %s", script_path)
-                    except subprocess.CalledProcessError:
-                        logging.warning("%s had errors during execution!", script_path)
-                else:
-                    logging.warning("'%s' is not executable! Skipping.", script_path)
+    if external_scripts_dir.exists():
+        for script in external_scripts_dir.iterdir():
+            if script.stat().st_mode & stat.S_IXUSR:
+                try:
+                    subprocess.check_call(
+                        [script, run_type], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    logging.debug("%s ran successfuly.", script)
+                except OSError:
+                    logging.warning("Couldn't run %s", script)
+                except subprocess.CalledProcessError:
+                    logging.warning("%s had errors during execution!", script)
+            else:
+                logging.warning("'%s' is not executable! Skipping.", script)
 
 
 def get_plugin_results(plugin_results_plist):
