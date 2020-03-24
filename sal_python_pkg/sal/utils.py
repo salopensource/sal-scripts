@@ -18,10 +18,13 @@ from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPref
                         CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
                         NSDictionary, NSData, NSNull)
 
+import sal.version
+
 
 BUNDLE_ID = 'com.github.salopensource.sal'
 RESULTS_PATH = '/usr/local/sal/checkin_results.json'
 ISO_TIME_FORMAT = '%Y-%m-%d %H:%M:%S %z'
+
 
 def set_pref(pref_name, pref_value):
     """Sets a Sal preference.
@@ -143,7 +146,7 @@ def curl(url, data=None, json_path=None):
     basic_auth = pref('BasicAuth')
     if basic_auth:
         key = pref('key')
-        user_pass = 'sal:%s' % key
+        user_pass = f'sal:{key}'
         cmd += ['--user', user_pass]
 
     ssl_client_cert = pref('SSLClientCertificate')
@@ -156,8 +159,8 @@ def curl(url, data=None, json_path=None):
     max_time = '8' if data else '4'
     cmd += ['--max-time', max_time]
 
-    if VERSION:
-        cmd += ['--header', 'SalScript-Version: %s' % VERSION]
+    cmd += ['--header', f'SalScript-Version: {sal.version.__version__}']
+    import pdb; pdb.set_trace()
 
     if data:
         cmd += ['--data', data]
@@ -169,7 +172,7 @@ def curl(url, data=None, json_path=None):
 
     cmd.append(url)
 
-    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     return task.communicate()
 
 

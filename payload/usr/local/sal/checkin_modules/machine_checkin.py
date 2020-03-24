@@ -10,9 +10,9 @@ from xml.etree import ElementTree
 from SystemConfiguration import (
     SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
+import sal
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist
-import sal
 
 
 MODEL_PATH = pathlib.Path("/usr/local/sal/mac_model.txt")
@@ -28,7 +28,7 @@ def main():
     extras['console_user'] = get_console_user()[0]
     extras.update(process_system_profile())
     machine_results['extra_data'] = extras
-    sal.utils.set_checkin_results('Machine', machine_results)
+    sal.set_checkin_results('Machine', machine_results)
 
 
 def process_system_profile():
@@ -69,7 +69,7 @@ def process_system_profile():
 
 
 def get_hostname():
-    _, name_type, _ = sal.utils.get_server_prefs()
+    _, name_type, _ = sal.get_server_prefs()
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     return get_machine_name(net_config, name_type)
 

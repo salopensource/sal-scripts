@@ -5,10 +5,9 @@ import datetime
 import os
 import sys
 
+import sal
 sys.path.insert(0, '/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
-sys.path.insert(0, '/usr/local/sal')
-import utils
 
 
 __version__ = '1.0.0'
@@ -18,7 +17,7 @@ def main():
     # If we haven't successfully submitted to Sal, pull the existing
     # munki section rather than start from scratch, as we want to
     # keep any install/removal history that may be there.
-    munki_submission = utils.get_checkin_results().get('munki', {})
+    munki_submission = sal.get_checkin_results().get('munki', {})
     munki_report = get_managed_install_report()
 
     extras = {}
@@ -98,7 +97,7 @@ def main():
             else:
                 munki_submission['managed_items'][item['name']] = history
 
-    utils.set_checkin_results('Munki', munki_submission)
+    sal.set_checkin_results('Munki', munki_submission)
 
 
 def get_managed_install_report():
@@ -122,7 +121,7 @@ def get_managed_install_report():
     if 'MachineInfo' not in munki_report:
         munki_report['MachineInfo'] = {}
 
-    return utils.unobjctify(munki_report)
+    return sal.unobjctify(munki_report)
 
 
 def get_optional_manifest():

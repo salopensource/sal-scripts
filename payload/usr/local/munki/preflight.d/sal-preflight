@@ -13,8 +13,8 @@ import shutil
 import sys
 import urllib
 
-sys.path[:0] = ['/usr/local/munki', '/usr/local/sal']
-import utils
+import sal
+sys.path.append('/usr/local/munki')
 from munkilib import FoundationPlist, munkicommon
 
 
@@ -27,7 +27,7 @@ def main():
     if os.path.exists('/private/var/osquery/sal_packs/sal.conf'):
         os.remove('/private/var/osquery/sal_packs/sal.conf')
 
-    sync_scripts = utils.pref('SyncScripts')
+    sync_scripts = sal.pref('SyncScripts')
     if sync_scripts == True:
         if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
             os.makedirs(EXTERNAL_SCRIPTS_DIR)
@@ -43,8 +43,8 @@ def main():
 def get_prefs():
     # Check for mandatory prefs and bail if any are missing.
     required_prefs = {}
-    required_prefs["key"] = utils.pref('key')
-    required_prefs["ServerURL"] = utils.pref('ServerURL').rstrip('/')
+    required_prefs["key"] = sal.pref('key')
+    required_prefs["ServerURL"] = sal.pref('ServerURL').rstrip('/')
 
     for key, val in required_prefs.items():
         if not val:
@@ -60,7 +60,7 @@ def get_checksum():
         or None if no external scripts are used.
     """
     preflight_url = "%s/preflight-v2/" % SERVER_URL
-    stdout, stderr = utils.curl(preflight_url, data=urllib.urlencode({'os_family': 'Darwin'}))
+    stdout, stderr = sal.curl(preflight_url, data=urllib.urlencode({'os_family': 'Darwin'}))
 
     if stderr:
         munkicommon.display_debug2(stderr)
@@ -84,7 +84,7 @@ def download_scripts(server_scripts):
         if not os.path.exists(target_script):
             download_required = True
         else:
-            unused_local_content, local_hash = utils.get_file_and_hash(target_script)
+            unused_local_content, local_hash = sal.get_file_and_hash(target_script)
             if local_hash != server_script['hash']:
                 download_required = True
 
@@ -97,7 +97,7 @@ def download_and_write_script(server_script):
     """Gets script from the server and makes it execuatble."""
     script_url = "%s/preflight-v2/get-script/%s/%s/" % (SERVER_URL, server_script['plugin'],
                                                         server_script['filename'])
-    stdout, stderr = utils.curl(script_url)
+    stdout, stderr = sal.curl(script_url)
     if stderr:
         munkicommon.display_debug2('Error received downloading script:')
         munkicommon.display_debug2(stderr)

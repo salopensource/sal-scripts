@@ -10,8 +10,7 @@ import sys
 import xml.parsers.expat
 from distutils.version import StrictVersion
 
-sys.path.insert(0, '/usr/local/sal')
-import utils
+import sal
 
 
 __version__ = '1.0.1'
@@ -28,7 +27,7 @@ def main():
     pending = get_pending()
     sus_submission['managed_items'].update(pending)
 
-    utils.set_checkin_results('Apple Software Update', sus_submission)
+    sal.set_checkin_results('Apple Software Update', sus_submission)
 
 
 def get_sus_install_report():

@@ -7,9 +7,9 @@ import sys
 import socket
 import urllib2
 
-sys.path[:0] = ['/usr/local/munki', '/usr/local/sal', '/usr/local/sal/checkin_modules']
+sys.path[:0] = ['/usr/local/munki', '/usr/local/sal/checkin_modules']
 import munki_checkin
-import utils
+import sal
 from munkilib import FoundationPlist, munkicommon
 
 
@@ -56,21 +56,21 @@ def check_server_connection():
 
 def check_server_online():
     # is the offline report pref true?
-    if not utils.pref('SendOfflineReport'):
+    if not sal.pref('SendOfflineReport'):
         return
     # read report
     report = munki_checkin.get_managed_install_report()
     # check for errors and warnings
     if not check_for_errors(report):
-        utils.set_pref('LastRunWasOffline', False)
+        sal.set_pref('LastRunWasOffline', False)
         return
     # if they're there check is server is really offline
     if check_server_connection():
-        utils.set_pref('LastRunWasOffline', True)
+        sal.set_pref('LastRunWasOffline', True)
         return
 
     # If we get here, it's online
-    utils.set_pref('LastRunWasOffline', False)
+    sal.set_pref('LastRunWasOffline', False)
 
 def write_touch_file():
     if os.path.exists(TOUCH_FILE_PATH):
