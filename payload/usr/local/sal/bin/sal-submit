@@ -12,7 +12,6 @@ import os
 import re
 import stat
 import subprocess
-import sys
 import tempfile
 
 from Foundation import CFPreferencesCopyAppValue
@@ -30,9 +29,9 @@ def main():
 
     exit_if_not_root()
     if sal.wait_for_script('sal-submit'):
-        sys.exit('Another instance of sal-submit is already running. Exiting.')
+        exit('Another instance of sal-submit is already running. Exiting.')
     if sal.wait_for_script('managedsoftwareupdate'):
-        sys.exit('managedsoftwareupdate is running. Exiting.')
+        exit('managedsoftwareupdate is running. Exiting.')
 
     logging.info('Processing checkin modules...')
     script_results = sal.run_scripts(CHECKIN_MODULES_DIR)
@@ -93,9 +92,8 @@ def get_args():
 
 def exit_if_not_root():
     """Exit if the executing user is not root."""
-    uid = os.geteuid()
-    if uid != 0:
-        sys.exit("Manually running this script requires sudo.")
+    if os.geteuid() != 0:
+        exit("Manually running this script requires sudo.")
 
 
 def get_run_type(submission):
