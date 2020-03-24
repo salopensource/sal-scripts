@@ -161,7 +161,6 @@ def curl(url, data=None, json_path=None):
     cmd += ['--max-time', max_time]
 
     cmd += ['--header', f'SalScript-Version: {sal.version.__version__}']
-    import pdb; pdb.set_trace()
 
     if data:
         cmd += ['--data', data]
@@ -169,7 +168,7 @@ def curl(url, data=None, json_path=None):
         cmd += ['--header', 'Content-Type: application/json']
         # Use the @ syntax for curl to open the file and do any required
         # encoding for us.
-        cmd += ['--data', '@%s' % json_path]
+        cmd += ['--data', f'@{json_path}']
 
     cmd.append(url)
 
@@ -177,9 +176,9 @@ def curl(url, data=None, json_path=None):
     return task.communicate()
 
 
-def get_file_hash(file_path):
+def get_hash(file_path):
     """Return sha256 hash of file_path."""
-    text = ''
+    text = b''
     if (path := pathlib.Path(file_path)).is_file():
         text = path.read_bytes()
     return hashlib.sha256(text).hexdigest()
@@ -235,7 +234,6 @@ def clean_results():
 def save_results(data):
     """Replace all data in the results file."""
     with open(RESULTS_PATH, 'w') as results_handle:
-        # Python2 json.dump encodes all unicode to UTF-8 for us.
         json.dump(data, results_handle, default=serializer)
 
 
@@ -273,11 +271,11 @@ def run_scripts(dir_path, cli_args=None):
                 cmd.append(cli_args)
             try:
                 subprocess.call(cmd, stdin=None)
-                results.append("'{}' ran successfully".format(script))
+                results.append(f"'{script}' ran successfully")
             except (OSError, subprocess.CalledProcessError):
-                results.append("'{}' had errors during execution!".format(script))
+                results.append(f"'{script}' had errors during execution!")
         else:
-            results.append("'{}' is not executable or has bad permissions".format(script))
+            results.append(f"'{script}' is not executable or has bad permissions")
     return results
 
 
@@ -350,6 +348,6 @@ def unobjctify(element, safe=False):
     raise ValueError(f"Element type '{type(element)}' is not supported!")
 
 
-def submission_encode(text):
+def submission_encode(data: bytes) -> bytes:
     """Return a b64 encoded, bz2 compressed copy of text."""
-    return base64.b64encode(bz2.compress(text))
+    return base64.b64encode(bz2.compress(data))
