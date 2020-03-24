@@ -234,11 +234,11 @@ def send_inventory(server_url, serial):
     inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')
 
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
-    inventory_plist = os.path.join(managed_install_dir, 'ApplicationInventory.plist')
+    inventory_plist = pathlib.Path(managed_install_dir) / 'ApplicationInventory.plist'
     logging.debug('ApplicationInventory.plist Path: %s', inventory_plist)
 
-    inventory, inventory_hash = sal.get_file_and_hash(inventory_plist)
-    if inventory:
+    if inventory:= inventory_plist.read_bytes():
+        inventory_hash = sal.get_hash(inventory_plist)
         serverhash = None
         serverhash, stderr = sal.curl(hash_url)
         if stderr:
@@ -265,7 +265,7 @@ def send_catalogs(server_url, machine_group_key):
         for catalog_file in os.listdir(catalog_dir):
             # don't operate on hidden files (.DS_Store etc)
             if not catalog_file.startswith('.'):
-                _, catalog_hash = sal.get_file_and_hash(catalog_file)
+                catalog_hash = sal.get_hash(catalog_file)
                 check_list.append({'name': catalog_file, 'sha256hash': catalog_hash})
 
         catalog_check_plist = FoundationPlist.writePlistToString(check_list)
@@ -283,7 +283,7 @@ def send_catalogs(server_url, machine_group_key):
 
         for catalog in check_list:
             if catalog not in remote_data:
-                contents, _ = sal.get_file_and_hash(os.path.join(catalog_dir, catalog['name']))
+                contents = (pathlib.Path(catalog_dir) / catalog['name']).read_bytes()
                 catalog_submission = {
                     'key': machine_group_key,
                     'base64bz2catalog': sal.submission_encode(contents),
@@ -303,7 +303,7 @@ def send_profiles(server_url, serial):
     profile_submit_url = os.path.join(server_url, 'profiles/submit', '')
 
     temp_dir = tempfile.mkdtemp()
-    profile_out = os.path.join(temp_dir, 'profiles.plist')
+    profile_out = pathlib.Path(temp_dir) / 'profiles.plist'
 
     cmd = ['/usr/bin/profiles', '-C', '-o', profile_out]
     dev_null = open(os.devnull, 'w')
@@ -313,13 +313,10 @@ def send_profiles(server_url, serial):
         logging.warning("Couldn't output profiles.")
         return
 
-    profiles, _ = sal.get_file_and_hash(profile_out)
+    profiles = sal.submission_encode(profile_out.read_bytes())
+    profile_out.unlink()
 
-    os.remove(profile_out)
-
-    profile_submission = {
-        'serial': serial,
-        'base64bz2profiles': sal.submission_encode(profiles)}
+    profile_submission = {'serial': serial, 'base64bz2profiles': profiles}
 
     logging.debug("Profiles Response:")
     out, error = sal.send_report(profile_submit_url, form_data=profile_submission)

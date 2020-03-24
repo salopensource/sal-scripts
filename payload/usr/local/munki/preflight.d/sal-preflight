@@ -84,7 +84,7 @@ def download_scripts(server_scripts):
         if not os.path.exists(target_script):
             download_required = True
         else:
-            unused_local_content, local_hash = sal.get_file_and_hash(target_script)
+            local_hash = sal.get_hash(target_script)
             if local_hash != server_script['hash']:
                 download_required = True
 

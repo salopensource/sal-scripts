@@ -8,6 +8,7 @@ import datetime
 import hashlib
 import json
 import os
+import pathlib
 import plistlib
 import stat
 import subprocess
@@ -176,14 +177,12 @@ def curl(url, data=None, json_path=None):
     return task.communicate()
 
 
-def get_file_and_hash(path):
-    """Given a filepath, return a tuple of (file contents, sha256."""
+def get_file_hash(file_path):
+    """Return sha256 hash of file_path."""
     text = ''
-    if os.path.isfile(path):
-        with open(path) as ifile:
-            text = ifile.read()
-
-    return text, hashlib.sha256(text).hexdigest()
+    if (path := pathlib.Path(file_path)).is_file():
+        text = path.read_bytes()
+    return hashlib.sha256(text).hexdigest()
 
 
 def send_report(url, form_data=None, json_data=None, json_path=None):
