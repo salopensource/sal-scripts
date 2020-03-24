@@ -132,21 +132,17 @@ def run_external_scripts(run_type):
 
 
 def get_plugin_results(plugin_results_plist):
-    """ Read external data plist if it exists and return a dict."""
-    results = []
-    if os.path.exists(plugin_results_plist):
+    """ Read external data plist if it exists and return a list."""
+    plist_data = []
+    if plugin_results_plist.exists():
         try:
-            plist_data = FoundationPlist.readPlist(plugin_results_plist)
-        except FoundationPlist.FoundationPlistException:
+            plist_data = plistlib.loads(plugin_results_plist.read_bytes())
+        except plistlib.InvalidFileException:
             logging.warning('Could not read external data plist.')
-            return results
-
-        results = sal.unobjctify(plist_data)
-
     else:
         logging.warning('No external data plist found.')
 
-    return results
+    return sal.unobjctify(plist_data)
 
 
 def remove_blacklisted_messages():
