@@ -174,8 +174,7 @@ def remove_blacklisted_messages():
 
 
 def remove_skipped_facts():
-    skip_facts = sal.pref('SkipFacts')
-    if skip_facts:
+    if skip_facts := sal.pref('SkipFacts'):
         update = False
         submission = sal.get_checkin_results()
 
@@ -201,7 +200,7 @@ def remove_skipped_facts():
 
 def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
-    logging.debug("Sending report to {}".format(checkinurl))
+    logging.debug(f"Sending report to {checkinurl}")
     logging.debug("Checkin Response:")
     out, error = sal.send_report(checkinurl, json_path=sal.RESULTS_PATH)
     log(out, error)
@@ -249,17 +248,17 @@ def send_catalogs(server_url, machine_group_key):
     managed_install_dir = (
         CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls') or
         '/Library/Managed Installs')
-    catalog_dir = os.path.join(managed_install_dir, 'catalogs')
+    catalog_dir = pathlib.Path(managed_install_dir) / 'catalogs'
 
     check_list = []
-    if os.path.exists(catalog_dir):
-        for catalog_file in os.listdir(catalog_dir):
+    if catalog_dir.exists():
+        for catalog_file in catalog_dir.iterdir():
             # don't operate on hidden files (.DS_Store etc)
-            if not catalog_file.startswith('.'):
+            if not str(catalog_file).startswith('.'):
                 catalog_hash = sal.get_hash(catalog_file)
-                check_list.append({'name': catalog_file, 'sha256hash': catalog_hash})
+                check_list.append({'name': str(catalog_file), 'sha256hash': catalog_hash})
 
-        catalog_check_plist = FoundationPlist.writePlistToString(check_list)
+        catalog_check_plist = plistlib.dumps(check_list)
 
     hash_submission = {
         'key': machine_group_key,
@@ -268,8 +267,8 @@ def send_catalogs(server_url, machine_group_key):
 
     if stderr is not None:
         try:
-            remote_data = FoundationPlist.readPlistFromString(response)
-        except FoundationPlist.NSPropertyListSerializationException:
+            remote_data = plistlib.loads(response.encode())
+        except plistlib.InvalidFileException:
             remote_data = {}
 
         for catalog in check_list:

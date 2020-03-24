@@ -186,6 +186,7 @@ def get_hash(file_path):
 
 def send_report(url, form_data=None, json_data=None, json_path=None):
     if form_data:
+        # urlencode allows bytes and str in its dict arg.
         stdout, stderr = curl(url, data=urllib.parse.urlencode(form_data))
     elif json_data:
         raise NotImplementedError
