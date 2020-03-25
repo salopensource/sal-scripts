@@ -89,7 +89,7 @@ def wait_for_script(scriptname, repeat=3, pause=1):
     while count < repeat:
         if script_is_running(scriptname):
             time.sleep(pause)
-            counter += 1
+            count += 1
         else:
             return False
     return True
