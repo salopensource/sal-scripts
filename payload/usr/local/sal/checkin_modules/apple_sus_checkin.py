@@ -2,18 +2,17 @@
 
 
 import datetime
+import pathlib
 import platform
 import plistlib
 import re
 import subprocess
-import sys
-import xml.parsers.expat
 from distutils.version import StrictVersion
 
 import sal
 
 
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 
 
 def main():
@@ -33,8 +32,9 @@ def main():
 def get_sus_install_report():
     """Return installed apple updates from softwareupdate"""
     try:
-        history = plistlib.readPlist('/Library/Receipts/InstallHistory.plist')
-    except (IOError, xml.parsers.expat.ExpatError):
+        history = plistlib.loads(
+            pathlib.Path('/Library/Receipts/InstallHistory.plist').read_bytes())
+    except (IOError, plistlib.InvalidFileException):
         history = []
     return {
         i['displayName']: {
@@ -49,7 +49,8 @@ def get_sus_install_report():
 
 def get_sus_facts():
     result = {'checkin_module_version': __version__}
-    history_limit = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    history_limit = (
+        datetime.datetime.now().astimezone(datetime.timezone.utc) - datetime.timedelta(days=1))
     cmd = ['softwareupdate', '--dump-state']
     try:
         subprocess.check_call(cmd)
@@ -64,24 +65,9 @@ def get_sus_facts():
         if 'Catalog: http' in line and 'catalog' not in result:
             result['catalog'] = line.split()[-1]
         elif 'SUScan: Elapsed scan time = ' in line and 'last_check' not in result:
-            # Example date 2019-02-08 10:49:56-05
-            # Ahhhh, python 2 stdlib... Doesn't support the %z UTC
-            # offset correctly.
+            result['last_check'] = _get_log_time(line).isoformat()
 
-            # So split off UTC offset.
-            raw_date = ' '.join(line.split()[:2])
-            # and make a naive datetime from it.
-            naive = datetime.datetime.strptime(raw_date[:-3], '%Y-%m-%d %H:%M:%S')
-            # Convert the offset in hours to an int, including the sign.
-            offset = int(raw_date[-3:])
-            # Invert the offset by subtracting from the naive datetime.
-            last_check_datetime = naive - datetime.timedelta(hours=offset)
-            # Finally, convert to ISO format and tack a Z on to show
-            # we're using UTC time now.
-            result['last_check'] = last_check_datetime.isoformat() + 'Z'
-
-        log_time = _get_log_time(line)
-        if log_time and log_time < history_limit:
+        if (log_time := _get_log_time(line)) and log_time < history_limit:
             # Let's not look earlier than when we started
             # softwareupdate.
             break
@@ -95,12 +81,20 @@ def get_sus_facts():
 
 
 def _get_log_time(line):
+    # Example date 2019-02-08 10:49:56-05
+    raw_datetime = ' '.join(line.split()[:2])
+    # Add 0's to make TZ offset work with strptime (expects a 4
+    # digit offset). This should hopefully cover even those off
+    # by minutes locations. e.g. I would hope the above log time in
+    # French Polynesia would look like this: 2019-02-08 10:49:56-0930
+    raw_datetime += (24 - len(raw_datetime)) * '0'
+
     try:
-        result = datetime.datetime.strptime(line[:19], '%Y-%m-%d %H:%M:%S')
+        aware_datetime = datetime.datetime.strptime(raw_datetime, '%Y-%m-%d %H:%M:%S%z')
     except ValueError:
-        return None
-    utc_result = result - datetime.timedelta(hours=int(line[19:22]))
-    return utc_result
+        aware_datetime = None
+    # Convert to UTC time.
+    return None if not aware_datetime else aware_datetime.astimezone(datetime.timezone.utc)
 
 
 def get_pending():
@@ -109,7 +103,7 @@ def get_pending():
     try:
         # softwareupdate outputs "No new software available" to stderr,
         # so we pipe it off.
-        output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
+        output = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
     except subprocess.CalledProcessError:
         return pending_items
 
@@ -161,7 +155,8 @@ def get_pending():
             r'(?P<action>\[(?:restart|shut down)\])?'  # Capture an action if present.
         )
 
-    now = datetime.datetime.utcnow().isoformat() + 'Z'
+    # Convert local time to UTC time represented as a ISO 8601 str.
+    now = datetime.datetime.now().astimezone(datetime.timezone.utc).isoformat()
     return {
         m.group('name'): {
             'date_managed': now,
