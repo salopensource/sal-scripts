@@ -2,6 +2,7 @@
 
 
 import pathlib
+import plistlib
 import re
 import subprocess
 import sys
@@ -11,8 +12,6 @@ from SystemConfiguration import (
     SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
 import sal
-sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist
 
 
 MODEL_PATH = pathlib.Path("/usr/local/sal/mac_model.txt")
@@ -158,8 +157,8 @@ def get_sys_profile():
         return {}
 
     try:
-        system_profile = FoundationPlist.readPlistFromString(output)
-    except FoundationPlist.FoundationPlistException:
+        system_profile = plistlib.loads(output)
+    except plistlib.InvalidException:
         system_profile = {}
 
     # sytem_profiler gives us back an array; convert to a dict with just
