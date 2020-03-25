@@ -3,14 +3,16 @@
 
 import datetime
 import os
+import pathlib
+import plistlib
 import sys
 
 import sal
 sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist, munkicommon
+from munkilib import munkicommon
 
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 def main():
@@ -111,11 +113,11 @@ def get_managed_install_report():
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
 
     # set the paths based on munki's configuration.
-    managed_install_report = os.path.join(managed_install_dir, 'ManagedInstallReport.plist')
+    managed_install_report = pathlib.Path(managed_install_dir) / 'ManagedInstallReport.plist'
 
     try:
-        munki_report = FoundationPlist.readPlist(managed_install_report)
-    except (IOError, FoundationPlist.NSPropertyListSerializationException):
+        munki_report = plistlib.loads(managed_install_report.read_bytes())
+    except (IOError, plistlib.InvalidFileException):
         munki_report = {}
 
     if 'MachineInfo' not in munki_report:
@@ -135,11 +137,11 @@ def get_optional_manifest():
     managed_install_dir = munkicommon.pref('ManagedInstallDir')
 
     # set the paths based on munki's configuration.
-    optional_manifest_path = os.path.join(managed_install_dir, 'manifests/SelfServeManifest')
+    optional_manifest_path = pathlib.Path(managed_install_dir) / 'manifests/SelfServeManifest'
 
     try:
-        optional_manifest = FoundationPlist.readPlist(optional_manifest_path)
-    except (IOError, FoundationPlist.NSPropertyListSerializationException):
+        optional_manifest = plistlib.loads(optional_manifest_path.read_bytes())
+    except (IOError, plistlib.InvalidFileException):
         optional_manifest = {}
 
     return optional_manifest
