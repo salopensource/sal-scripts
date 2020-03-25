@@ -1,12 +1,10 @@
 #!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 
 
-import sys
-
 import sal
 
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 def main():
