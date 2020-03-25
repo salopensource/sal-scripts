@@ -49,7 +49,7 @@ def main():
             # We need to drop the final 'S' to match Sal's message types.
             munki_submission['messages'].append({'message_type': key.upper()[:-1], 'text': msg})
 
-    now = datetime.datetime.utcnow().isoformat() + 'Z'
+    now = datetime.datetime.now().astimezone(datetime.timezone.utc).isoformat()
     # Process managed items and update histories.
     munki_submission['managed_items'] = {}
 
@@ -61,7 +61,7 @@ def main():
 
         version_key = 'version_to_install' if not item['installed'] else 'installed_version'
         version = item[version_key]
-        name = '{} {}'.format(item['name'], version)
+        name = f'{item["name"]} {version}'
         submission_item['name'] = name
 
         # Pop off these two since we already used them.
@@ -89,9 +89,10 @@ def main():
             history = {}
             # history = {'update_type': 'apple' if item.get('applesus') else 'third_party'}
             history['status'] = 'ERROR' if item.get('status') != 0 else result_type
-            # Munki puts a UTC time in, but python drops the TZ info.
-            # Convert to the expected submission format of ISO in UTC.
-            history['date_managed'] = item['time'].isoformat() + 'Z'
+            # This UTC datetime gets converted to a naive datetime by
+            # plistlib. Fortunately, we can just tell it that it's UTC.
+            history['date_managed'] = item['time'].replace(
+                tzinfo=datetime.timezone.utc).isoformat()
             history['data'] = {'version': item.get('version', '0')}
             # Add over top of any pending items we may have already built.
             if item['name'] in munki_submission['managed_items']:
