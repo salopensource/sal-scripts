@@ -269,7 +269,7 @@ def send_catalogs(server_url, machine_group_key):
         try:
             remote_data = plistlib.loads(response.encode())
         except plistlib.InvalidFileException:
-            remote_data = {}
+            remote_data = []
 
         for catalog in check_list:
             if catalog not in remote_data:
