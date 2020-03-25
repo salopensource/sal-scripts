@@ -16,7 +16,7 @@ import sal
 
 MODEL_PATH = pathlib.Path("/usr/local/sal/mac_model.txt")
 MEMORY_EXPONENTS = {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 def main():
@@ -78,7 +78,8 @@ def get_machine_name(net_config, nametype):
     sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
     if sys_info:
         return sys_info.get(nametype)
-    return subprocess.check_output(['/usr/sbin/scutil', '--get', 'ComputerName'])
+    return subprocess.check_output(
+        ['/usr/sbin/scutil', '--get', 'ComputerName'], text=True).strip()
 
 
 def get_friendly_model(serial):
@@ -112,11 +113,12 @@ def query_apple_support(serial):
     tree = ElementTree.ElementTree()
     try:
         response = subprocess.check_output(
-            ['curl', f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US"])
+            ['curl', f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US"],
+            text=True)
     except subprocess.CalledProcessError:
         pass
     try:
-        tree = ElementTree.fromstring(response.decode())
+        tree = ElementTree.fromstring(response)
     except ElementTree.ParseError:
         pass
     return tree.findtext("configCode")
