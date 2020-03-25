@@ -327,7 +327,7 @@ def unobjctify(element, safe=False):
     raises: ValueError for any data that isn't supported (yet!) by this
         function.
     """
-    supported_types = (str, bytes, int, float, bool)
+    supported_types = (str, bytes, int, float, bool, datetime.datetime)
     if isinstance(element, supported_types):
         return element
     elif isinstance(element, (dict, NSDictionary)):
