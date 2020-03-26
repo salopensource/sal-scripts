@@ -1,2 +1,2 @@
 sal_python_pkg/
-pyobjc
+pyobjc==6.2
