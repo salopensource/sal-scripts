@@ -23,7 +23,10 @@ let defaults = UserDefaults.init(suiteName: "com.github.salopensource.sal")
 let key = defaults?.string(forKey: "key") ?? ""
 
 var urlString =  defaults?.string(forKey: "ServerURL") ?? ""
-
+if urlString.hasSuffix("/") {
+    let trailingSlash = urlString.lastIndex(of: "/")
+    urlString.remove(at: trailingSlash!)
+}
 urlString = urlString + "/report_broken_client/"
 
 let serial = getSerial()
