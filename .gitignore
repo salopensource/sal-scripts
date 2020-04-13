@@ -59,7 +59,12 @@ target/
 # Built package
 *.pkg
 
-FoundationPlist.py
+# Python Framework
+Python.framework
+
+# Xcode junk
+report_broken_client/report_broken_client.xcodeproj/project.xcworkspace/xcuserdata/*
+report_broken_client/report_broken_client.xcodeproj/xcuserdata/*
 
 # Go junk
 vendor/

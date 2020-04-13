@@ -1,18 +1,17 @@
-#!/usr/bin/python
+#!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 """Run all scripts found in the Munki postflight.d directory."""
 
 
 import sys
 
-sys.path.insert(0, '/usr/local/sal')
-import utils
+import sal
 
 
 POSTFLIGHT_DIR = '/usr/local/munki/postflight.d'
 
 
 def main():
-    utils.run_scripts(POSTFLIGHT_DIR, sys.argv[1])
+    sal.run_scripts(POSTFLIGHT_DIR, sys.argv[1])
 
 
 if __name__ == "__main__":

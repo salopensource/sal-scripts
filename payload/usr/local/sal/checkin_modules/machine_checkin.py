@@ -1,21 +1,22 @@
-#!/usr/bin/python
+#!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 
 
+import pathlib
+import plistlib
+import re
 import subprocess
 import sys
+from xml.etree import ElementTree
 
 from SystemConfiguration import (
     SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
-sys.path.insert(0, '/usr/local/munki')
-from munkilib import FoundationPlist
-sys.path.insert(0, '/usr/local/sal')
-import macmodelshelf
-import utils
+import sal
 
 
+MODEL_PATH = pathlib.Path("/usr/local/sal/mac_model.txt")
 MEMORY_EXPONENTS = {'KB': 0, 'MB': 1, 'GB': 2, 'TB': 3}
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 
 def main():
@@ -26,7 +27,7 @@ def main():
     extras['console_user'] = get_console_user()[0]
     extras.update(process_system_profile())
     machine_results['extra_data'] = extras
-    utils.set_checkin_results('Machine', machine_results)
+    sal.set_checkin_results('Machine', machine_results)
 
 
 def process_system_profile():
@@ -67,7 +68,7 @@ def process_system_profile():
 
 
 def get_hostname():
-    _, name_type, _ = utils.get_server_prefs()
+    _, name_type, _ = sal.get_server_prefs()
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     return get_machine_name(net_config, name_type)
 
@@ -77,14 +78,60 @@ def get_machine_name(net_config, nametype):
     sys_info = SCDynamicStoreCopyValue(net_config, "Setup:/System")
     if sys_info:
         return sys_info.get(nametype)
-    return subprocess.check_output(['/usr/sbin/scutil', '--get', 'ComputerName'])
+    return subprocess.check_output(
+        ['/usr/sbin/scutil', '--get', 'ComputerName'], text=True).strip()
 
 
 def get_friendly_model(serial):
     """Return friendly model name"""
-    model_code = macmodelshelf.model_code(serial)
-    model_name = macmodelshelf.model(model_code)
-    return model_name
+    if not MODEL_PATH.exists():
+        model = cleanup_model(query_apple_support(serial))
+        MODEL_PATH.write_text(model)
+    else:
+        try:
+            model = MODEL_PATH.read_text().strip()
+        except:
+            model = None
+    return model
+
+
+def get_model_code(serial):
+    # Workaround for machines with dummy serial numbers.
+    if "serial" in serial.lower():
+        return
+
+    if 12 <= len(serial) <= 13:
+        if serial.startswith("S"):
+            # Remove S prefix from scanned codes.
+            serial = serial[1:]
+        return serial[8:].upper()
+    return
+
+
+def query_apple_support(serial):
+    model_code = get_model_code(serial)
+    tree = ElementTree.ElementTree()
+    try:
+        response = subprocess.check_output(
+            ['curl', f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US"],
+            text=True)
+    except subprocess.CalledProcessError:
+        pass
+    try:
+        tree = ElementTree.fromstring(response)
+    except ElementTree.ParseError:
+        pass
+    return tree.findtext("configCode")
+
+
+def cleanup_model(model):
+    cleanup_res = [
+        (re.compile(r"inch ? "), "inch, "),
+        (re.compile(r"  "), " ")]
+    if model:
+        for pattern, replacement in cleanup_res:
+            model = pattern.sub(replacement, model)
+    return model
 
 
 def process_memory(amount):
@@ -112,8 +159,8 @@ def get_sys_profile():
         return {}
 
     try:
-        system_profile = FoundationPlist.readPlistFromString(output)
-    except FoundationPlist.FoundationPlistException:
+        system_profile = plistlib.loads(output)
+    except plistlib.InvalidException:
         system_profile = {}
 
     # sytem_profiler gives us back an array; convert to a dict with just
