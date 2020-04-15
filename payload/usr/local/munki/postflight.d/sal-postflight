@@ -83,7 +83,7 @@ def write_touch_file():
 
 
 def ensure_launchd_loaded():
-    loaded_launchds = subprocess.check_output(['/bin/launchctl', 'list'])
+    loaded_launchds = subprocess.check_output(['/bin/launchctl', 'list'], text=True)
     # load the launchd if it's not loaded and is present on disk
     if LAUNCHD not in loaded_launchds and os.path.exists(LAUNCHD_PATH):
         subprocess.check_call(['/bin/launchctl', 'load', LAUNCHD_PATH])
