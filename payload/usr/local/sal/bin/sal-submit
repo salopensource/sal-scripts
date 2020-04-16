@@ -46,6 +46,7 @@ def main():
 
     remove_blacklisted_messages()
     remove_skipped_facts()
+    sanitize_submission()
 
     server_url, _, machine_group_key = sal.get_server_prefs()
     if logging.getLogger().level <= 10:
@@ -197,6 +198,16 @@ def remove_skipped_facts():
 
         if update:
             sal.save_results(submission)
+
+
+def sanitize_submission():
+    """Clean submission json"""
+    # Make sure we're not shipping up any null chars.
+    submission = sal.get_checkin_results()
+    # json will serialize null chars to '\\u0000', so we raw string it
+    # not escape, and replace it with nothing.
+    submission_str = json.dumps(submission).replace(r'\\u0000', '')
+    sal.save_results(json.loads(submission_str))
 
 
 def send_checkin(server_url):
