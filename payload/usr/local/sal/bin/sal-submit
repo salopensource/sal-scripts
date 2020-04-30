@@ -237,7 +237,7 @@ def send_inventory(server_url, serial):
     inventory_plist = pathlib.Path(managed_install_dir) / 'ApplicationInventory.plist'
     logging.debug('ApplicationInventory.plist Path: %s', inventory_plist)
 
-    if inventory:= inventory_plist.read_bytes():
+    if inventory := inventory_plist.read_bytes():
         inventory_hash = sal.get_hash(inventory_plist)
         serverhash = None
         serverhash, stderr = sal.curl(hash_url)
