@@ -251,25 +251,28 @@ def serializer(obj):
     return obj
 
 
-def run_scripts(dir_path, cli_args=None):
+def run_scripts(dir_path, cli_args=None, error=False):
     results = []
-    for script in os.listdir(dir_path):
-        script_stat = os.stat(os.path.join(dir_path, script))
-        if not script_stat.st_mode & stat.S_IWOTH:
-            cmd = [os.path.join(dir_path, script)]
-            if cli_args:
-                cmd.append(cli_args)
-            try:
-                subprocess.check_call(cmd, stdin=None)
-                results.append("'{}' ran successfully")
-            except (OSError, subprocess.CalledProcessError):
-                errormsg = "'{}' had error during execution!".format(script)
-                if not error:
-                    results.append(errormsg)
-                else:
-                    raise RuntimeError(errormsg)
-        else:
+    skip_names = {'__pycache__'}
+    scripts = (p for p in pathlib.Path(dir_path).iterdir() if p.name not in skip_names)
+    for script in scripts:
+        if script.stat().st_mode & stat.S_IWOTH:
             results.append(f"'{script}' is not executable or has bad permissions")
+            continue
+
+        cmd = [script]
+        if cli_args:
+            cmd.append(cli_args)
+        try:
+            subprocess.check_call(cmd)
+            results.append(f"'{script}' ran successfully")
+        except (OSError, subprocess.CalledProcessError):
+            errormsg = f"'{script}' had errors during execution!"
+            if not error:
+                results.append(errormsg)
+            else:
+                raise RuntimeError(errormsg)
+
     return results
 
 
