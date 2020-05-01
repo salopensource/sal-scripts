@@ -7,6 +7,7 @@ import bz2
 import datetime
 import hashlib
 import json
+import logging
 import os
 import pathlib
 import plistlib
@@ -15,6 +16,7 @@ import subprocess
 import time
 import urllib.parse
 
+import macsesh
 from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
                         CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
                         NSDictionary, NSData, NSNull)
@@ -132,50 +134,6 @@ def script_is_running(scriptname):
     return False
 
 
-def curl(url, data=None, json_path=None):
-    cmd = ['/usr/bin/curl', '--silent', '--show-error', '--connect-timeout', '2']
-
-    # Use a PEM format certificate file to verify the peer. This is
-    # useful primarily to support self-signed certificates, which are
-    # rejected on 10.13's bundled curl. In cases where you have a cert
-    # signed by an internal or external trusted CA, curl will happily
-    # use the keychain.
-    ca_cert = pref('CACert')
-    if ca_cert:
-        cmd += ['--cacert', ca_cert]
-
-    basic_auth = pref('BasicAuth')
-    if basic_auth:
-        key = pref('key')
-        user_pass = f'sal:{key}'
-        cmd += ['--user', user_pass]
-
-    ssl_client_cert = pref('SSLClientCertificate')
-    ssl_client_key = pref('SSLClientKey')
-    if ssl_client_cert:
-        cmd += ['--cert', ssl_client_cert]
-        if ssl_client_key:
-            cmd += ['--key', ssl_client_key]
-
-    max_time = '8' if data else '4'
-    cmd += ['--max-time', max_time]
-
-    cmd += ['--header', f'SalScript-Version: {sal.version.__version__}']
-
-    if data:
-        cmd += ['--data', data]
-    elif json_path:
-        cmd += ['--header', 'Content-Type: application/json']
-        # Use the @ syntax for curl to open the file and do any required
-        # encoding for us.
-        cmd += ['--data', f'@{json_path}']
-
-    cmd.append(url)
-
-    task = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    return task.communicate()
-
-
 def get_hash(file_path):
     """Return sha256 hash of file_path."""
     text = b''
@@ -184,16 +142,46 @@ def get_hash(file_path):
     return hashlib.sha256(text).hexdigest()
 
 
-def send_report(url, form_data=None, json_data=None, json_path=None):
-    if form_data:
-        # urlencode allows bytes and str in its dict arg.
-        stdout, stderr = curl(url, data=urllib.parse.urlencode(form_data))
-    elif json_data:
-        raise NotImplementedError
-    elif json_path:
-        stdout, stderr = curl(url, json_path=RESULTS_PATH)
+class SalClient():
 
-    return stdout, stderr
+    basic_timeout = (3.05, 4)
+    post_timeout = (3.05, 8)
+
+    def __init__(self):
+        sesh = macsesh.KeychainSession()
+
+        ca_cert = pref('CACert')
+        if ca_cert:
+            sesh.verify = ca_cert
+
+        basic_auth = pref('BasicAuth')
+        if basic_auth:
+            key = pref('key', '')
+            sesh.auth = ('sal', key)
+
+        # TODO: Handle keychain-based certs.
+        ssl_client_cert = pref('SSLClientCertificate')
+        ssl_client_key = pref('SSLClientKey')
+        if ssl_client_cert:
+            sesh.cert = (ssl_client_cert, ssl_client_key) if ssl_client_key else ssl_client_cert
+
+        self.sesh = sesh
+
+    def get(self, url):
+        return self.log_response(self.sesh.get(url, timeout=self.basic_timeout))
+
+
+    def post(self, url, data=None, json=None):
+        kwargs = {'timeout': self.post_timeout}
+        if json:
+            kwargs['json'] = json
+        else:
+            kwargs['data'] = data
+        return self.log_response(self.sesh.post(url, **kwargs))
+
+    def log_response(self, response):
+        logging.debug(f'Response HTTP {response.status_code}: {response.text}')
+        return response
 
 
 def add_plugin_results(plugin, data, historical=False):
