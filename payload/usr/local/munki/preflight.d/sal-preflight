@@ -6,7 +6,6 @@ Retrieves plugin scripts to run on client.
 
 
 import argparse
-import json
 import os
 import pathlib
 import shutil
@@ -27,7 +26,7 @@ def main():
     if sal.pref('SyncScripts') == True:
         if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
             os.makedirs(EXTERNAL_SCRIPTS_DIR)
-        server_scripts = get_checksum()
+        server_scripts = get_checksums()
         if server_scripts:
             create_dirs(server_scripts)
             download_scripts(server_scripts)
@@ -48,7 +47,7 @@ def get_prefs():
     return required_prefs
 
 
-def get_checksum():
+def get_checksums():
     """Downloads the checksum of existing scripts.
 
     Returns:
@@ -56,17 +55,24 @@ def get_checksum():
         or None if no external scripts are used.
     """
     preflight_url = f"{sal.pref('ServerURL')}/preflight-v2/"
-    stdout, stderr = sal.send_report(preflight_url, form_data={'os_family': 'Darwin'})
+    sal_client = sal.SalClient()
+    error_msg = None
+    try:
+        response = sal_client.post(preflight_url, data={'os_family': 'Darwin'})
+    except Exception as error:
+        error_msg = str(error)
+    if response.status_code != 200:
+        error_msg = f'Request failed with HTTP {response.status_code}'
 
-    if stderr:
-        munkicommon.display_debug2(stderr)
-    stdout_list = stdout.split("\n")
-    if "<h1>Page not found</h1>" not in stdout_list:
-        munkicommon.display_debug2(stdout)
+    if "<h1>Page not found</h1>" not in response.text:
+        munkicommon.display_debug2(response.text)
+
+    if error_msg:
+        munkicommon.display_debug2(error_msg)
 
     try:
-        return json.loads(stdout)
-    except:
+        return response.json()
+    except ValueError:
         munkicommon.display_debug2("Didn't receive valid JSON.")
         return None
 
@@ -94,16 +100,17 @@ def download_and_write_script(server_script):
     script_url = (
         f"{sal.pref('ServerURL')}/preflight-v2/get-script/"
         f"{server_script['plugin']}/{server_script['filename']}/")
-    stdout, stderr = sal.curl(script_url)
-    if stderr:
+    sal_client = sal.SalClient()
+    response = sal_client.get(script_url)
+    if response.status_code != 200:
         munkicommon.display_debug2('Error received downloading script:')
-        munkicommon.display_debug2(stderr)
+        munkicommon.display_debug2(response.text)
 
     script = open(
         os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename']),
         'w')
     try:
-        data = json.loads(stdout)
+        data = response.json()
     except:
         munkicommon.display_debug2('Did not receive valid JSON when requesting script content.')
         return False
