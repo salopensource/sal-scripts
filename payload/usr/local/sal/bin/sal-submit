@@ -53,9 +53,9 @@ def main():
         submission = sal.get_checkin_results()
         logging.debug('Checkin submission:')
         logging.debug(json.dumps(submission, indent=4, default=sal.serializer))
-    _, errors = send_checkin(server_url)
+    response = send_checkin(server_url)
 
-    if not errors:
+    if response.status_code == 200:
         sal.clean_results()
 
     # Speed up manual runs by skipping these potentially slow-running,
@@ -214,16 +214,8 @@ def send_checkin(server_url):
     checkinurl = os.path.join(server_url, 'checkin', '')
     logging.debug(f"Sending report to {checkinurl}")
     logging.debug("Checkin Response:")
-    out, error = sal.send_report(checkinurl, json_path=sal.RESULTS_PATH)
-    log(out, error)
-    return out, error
-
-
-def log(out, error):
-    if out:
-        logging.debug(out.strip())
-    if error:
-        logging.debug(error.strip())
+    sal_client = sal.SalClient()
+    return sal_client.post(checkinurl, json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
 
 
 def send_inventory(server_url, serial):
@@ -239,18 +231,17 @@ def send_inventory(server_url, serial):
 
     if inventory := inventory_plist.read_bytes():
         inventory_hash = sal.get_hash(inventory_plist)
+        logging.debug(f"Inventory hash: {inventory_hash}")
         serverhash = None
-        serverhash, stderr = sal.curl(hash_url)
-        if stderr:
-            return
-        if serverhash != inventory_hash:
+        sal_client = sal.SalClient()
+        response = sal_client.get(hash_url)
+        if response.status_code == 200 and response.text != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
                 'serial': serial,
                 'base64bz2inventory': sal.submission_encode(inventory)}
             logging.debug("Inventory report response:")
-            out, error = sal.send_report(inventory_submit_url, form_data=inventory_submission)
-            log(out, error)
+            sal_client.post(inventory_submit_url, data=inventory_submission)
 
 
 def send_catalogs(server_url, machine_group_key):
@@ -275,29 +266,31 @@ def send_catalogs(server_url, machine_group_key):
     hash_submission = {
         'key': machine_group_key,
         'catalogs': sal.submission_encode(catalog_check_plist)}
-    response, stderr = sal.send_report(hash_url, form_data=hash_submission)
+    sal_client = sal.SalClient()
+    try:
+        response = sal_client.post(hash_url, data=hash_submission)
+    except:
+        return
 
-    if stderr is not None:
-        try:
-            remote_data = plistlib.loads(response.encode())
-        except plistlib.InvalidFileException:
-            remote_data = []
+    try:
+        remote_data = plistlib.loads(response.content)
+    except plistlib.InvalidFileException:
+        remote_data = []
 
-        for catalog in check_list:
-            if catalog not in remote_data:
-                contents = (pathlib.Path(catalog_dir) / catalog['name']).read_bytes()
-                catalog_submission = {
-                    'key': machine_group_key,
-                    'base64bz2catalog': sal.submission_encode(contents),
-                    'name': catalog['name'],
-                    'sha256hash': catalog['sha256hash']}
+    for catalog in check_list:
+        if catalog not in remote_data:
+            contents = (pathlib.Path(catalog_dir) / catalog['name']).read_bytes()
+            catalog_submission = {
+                'key': machine_group_key,
+                'base64bz2catalog': sal.submission_encode(contents),
+                'name': catalog['name'],
+                'sha256hash': catalog['sha256hash']}
 
-                logging.debug("Submitting Catalog: %s", catalog['name'])
-                try:
-                    out, error = sal.send_report(catalog_submit_url, form_data=catalog_submission)
-                    log(out, error)
-                except OSError:
-                    logging.warning("Error while submitting Catalog: %s", catalog['name'])
+            logging.debug("Submitting Catalog: %s", catalog['name'])
+            try:
+                sal_client.post(catalog_submit_url, data=catalog_submission)
+            except OSError:
+                logging.warning("Error while submitting Catalog: %s", catalog['name'])
 
 
 def send_profiles(server_url, serial):
@@ -319,10 +312,8 @@ def send_profiles(server_url, serial):
     profile_out.unlink()
 
     profile_submission = {'serial': serial, 'base64bz2profiles': profiles}
-
-    logging.debug("Profiles Response:")
-    out, error = sal.send_report(profile_submit_url, form_data=profile_submission)
-    log(out, error)
+    sal_client = sal.SalClient()
+    sal_client.post(profile_submit_url, data=profile_submission)
 
 
 if __name__ == "__main__":
