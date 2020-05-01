@@ -86,7 +86,8 @@ def get_friendly_model(serial):
     """Return friendly model name"""
     if not MODEL_PATH.exists():
         model = cleanup_model(query_apple_support(serial))
-        MODEL_PATH.write_text(model)
+        if model:
+            MODEL_PATH.write_text(model)
     else:
         try:
             model = MODEL_PATH.read_text().strip()
@@ -111,17 +112,13 @@ def get_model_code(serial):
 def query_apple_support(serial):
     model_code = get_model_code(serial)
     tree = ElementTree.ElementTree()
+    session = macsesh.KeychainSession()
+    response = session.get(f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US")
     try:
-        response = subprocess.check_output(
-            ['curl', f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US"],
-            text=True)
-    except subprocess.CalledProcessError:
-        pass
-    try:
-        tree = ElementTree.fromstring(response)
+        tree = ElementTree.fromstring(response.text)
     except ElementTree.ParseError:
-        pass
-    return tree.findtext("configCode")
+        tree = None
+    return tree.findtext("configCode") if tree else None
 
 
 def cleanup_model(model):
