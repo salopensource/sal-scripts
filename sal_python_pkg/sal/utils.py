@@ -142,48 +142,6 @@ def get_hash(file_path):
     return hashlib.sha256(text).hexdigest()
 
 
-class SalClient():
-
-    basic_timeout = (3.05, 4)
-    post_timeout = (3.05, 8)
-
-    def __init__(self):
-        sesh = macsesh.KeychainSession()
-
-        ca_cert = pref('CACert')
-        if ca_cert:
-            sesh.verify = ca_cert
-
-        basic_auth = pref('BasicAuth')
-        if basic_auth:
-            key = pref('key', '')
-            sesh.auth = ('sal', key)
-
-        # TODO: Handle keychain-based certs.
-        ssl_client_cert = pref('SSLClientCertificate')
-        ssl_client_key = pref('SSLClientKey')
-        if ssl_client_cert:
-            sesh.cert = (ssl_client_cert, ssl_client_key) if ssl_client_key else ssl_client_cert
-
-        self.sesh = sesh
-
-    def get(self, url):
-        return self.log_response(self.sesh.get(url, timeout=self.basic_timeout))
-
-
-    def post(self, url, data=None, json=None):
-        kwargs = {'timeout': self.post_timeout}
-        if json:
-            kwargs['json'] = json
-        else:
-            kwargs['data'] = data
-        return self.log_response(self.sesh.post(url, **kwargs))
-
-    def log_response(self, response):
-        logging.debug(f'Response HTTP {response.status_code}: {response.text}')
-        return response
-
-
 def add_plugin_results(plugin, data, historical=False):
     """Add data to the shared plugin results plist.
 
