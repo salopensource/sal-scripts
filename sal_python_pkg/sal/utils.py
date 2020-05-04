@@ -209,7 +209,10 @@ def add_plugin_results(plugin, data, historical=False):
 def get_checkin_results():
     if os.path.exists(RESULTS_PATH):
         with open(RESULTS_PATH) as results_handle:
-            results = json.load(results_handle)
+            try:
+                results = json.load(results_handle)
+            except json.decoder.JSONDecodeError:
+                results = {}
     else:
         results = {}
 
