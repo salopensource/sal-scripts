@@ -218,8 +218,6 @@ def send_checkin(server_url):
 
 def send_inventory(server_url, serial):
     logging.info('Processing inventory...')
-    inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')
-
     managed_install_dir = (
         CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls') or
         '/Library/Managed Installs')
@@ -237,8 +235,7 @@ def send_inventory(server_url, serial):
             inventory_submission = {
                 'serial': serial,
                 'base64bz2inventory': sal.submission_encode(inventory)}
-            logging.debug("Inventory report response:")
-            sal_client.post(inventory_submit_url, data=inventory_submission)
+            sal_client.post('inventory/submit/', data=inventory_submission)
 
 
 def send_catalogs(server_url, machine_group_key):
