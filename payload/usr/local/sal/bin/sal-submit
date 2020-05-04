@@ -212,7 +212,7 @@ def sanitize_submission():
 
 def send_checkin(server_url):
     logging.debug("Sending report")
-    sal_client = sal.SalClient()
+    sal_client = sal.get_sal_client()
     return sal_client.post('checkin/', json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
 
 
@@ -228,7 +228,7 @@ def send_inventory(server_url, serial):
         inventory_hash = sal.get_hash(inventory_plist)
         logging.debug(f"Inventory hash: {inventory_hash}")
         serverhash = None
-        sal_client = sal.SalClient()
+        sal_client = sal.get_sal_client()
         response = sal_client.get(f'inventory/hash/{serial}/')
         if response.status_code == 200 and response.text != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
@@ -259,7 +259,7 @@ def send_catalogs(server_url, machine_group_key):
     hash_submission = {
         'key': machine_group_key,
         'catalogs': sal.submission_encode(catalog_check_plist)}
-    sal_client = sal.SalClient()
+    sal_client = sal.get_sal_client()
     try:
         response = sal_client.post('catalog/hash/', data=hash_submission)
     except:
@@ -303,7 +303,7 @@ def send_profiles(server_url, serial):
     profile_out.unlink()
 
     profile_submission = {'serial': serial, 'base64bz2profiles': profiles}
-    sal_client = sal.SalClient()
+    sal_client = sal.get_sal_client()
     sal_client.post('profiles/submit/', data=profile_submission)
 
 

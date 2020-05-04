@@ -5,6 +5,9 @@ import macsesh
 from sal.utils import pref
 
 
+_client_instance = None
+
+
 class SalClient():
 
     basic_timeout = (3.05, 4)
@@ -56,3 +59,10 @@ class SalClient():
         url = url[1:] if url.startswith('/') else url
         url = url[:-1] if url.endswith('/') else url
         return '/'.join((self.base_url, url)) + '/'
+
+
+def get_sal_client():
+    global _client_instance
+    if _client_instance is None:
+        _client_instance = SalClient()
+    return _client_instance
