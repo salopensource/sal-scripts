@@ -54,7 +54,7 @@ def get_checksums():
         A dict with the script name, plugin name and hash of the script
         or None if no external scripts are used.
     """
-    sal_client = sal.SalClient()
+    sal_client = sal.get_sal_client()
     error_msg = None
     try:
         response = sal_client.post('preflight-v2/', data={'os_family': 'Darwin'})
@@ -96,7 +96,7 @@ def download_scripts(server_scripts):
 
 def download_and_write_script(server_script):
     """Gets script from the server and makes it execuatble."""
-    sal_client = sal.SalClient()
+    sal_client = sal.get_sal_client()
     response = sal_client.get(
         f"preflight-v2/get-script/{server_script['plugin']}/{server_script['filename']}/")
     if response.status_code != 200:
