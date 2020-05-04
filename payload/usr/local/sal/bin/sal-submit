@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 
 from Foundation import CFPreferencesCopyAppValue
+import requests.exceptions
 
 import sal
 
@@ -55,7 +56,7 @@ def main():
         logging.debug(json.dumps(submission, indent=4, default=sal.serializer))
     response = send_checkin(server_url)
 
-    if response.status_code == 200:
+    if response and response.status_code == 200:
         sal.clean_results()
 
     # Speed up manual runs by skipping these potentially slow-running,
@@ -212,8 +213,14 @@ def sanitize_submission():
 
 def send_checkin(server_url):
     logging.debug("Sending report")
-    sal_client = sal.get_sal_client()
-    return sal_client.post('checkin/', json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
+    try:
+        response = sal.get_sal_client().post(
+            'checkin/', json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
+    except requests.exceptions.RequestException as error:
+        logging.error('Failed to send report')
+        logging.debug(error)
+        response = None
+    return response
 
 
 def send_inventory(server_url, serial):
@@ -229,13 +236,22 @@ def send_inventory(server_url, serial):
         logging.debug(f"Inventory hash: {inventory_hash}")
         serverhash = None
         sal_client = sal.get_sal_client()
-        response = sal_client.get(f'inventory/hash/{serial}/')
+        try:
+            response = sal_client.get(f'inventory/hash/{serial}/')
+        except requests.exceptions.RequestException as error:
+            logging.error('Failed to get inventory hash')
+            logging.debug(error)
+            return
         if response.status_code == 200 and response.text != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
                 'serial': serial,
                 'base64bz2inventory': sal.submission_encode(inventory)}
-            sal_client.post('inventory/submit/', data=inventory_submission)
+            try:
+                sal_client.post('inventory/submit/', data=inventory_submission)
+            except requests.exceptions.RequestException as error:
+                logging.error('Failed to submit inventory')
+                logging.debug(error)
 
 
 def send_catalogs(server_url, machine_group_key):
@@ -262,7 +278,9 @@ def send_catalogs(server_url, machine_group_key):
     sal_client = sal.get_sal_client()
     try:
         response = sal_client.post('catalog/hash/', data=hash_submission)
-    except:
+    except requests.exceptions.RequestException as error:
+        logging.error('Failed to get catalog hashes')
+        logging.debug(error)
         return
 
     try:
@@ -282,8 +300,9 @@ def send_catalogs(server_url, machine_group_key):
             logging.debug("Submitting Catalog: %s", catalog['name'])
             try:
                 sal_client.post(catalog_submit_url, data=catalog_submission)
-            except OSError:
-                logging.warning("Error while submitting Catalog: %s", catalog['name'])
+            except requests.exceptions.RequestException as error:
+                logging.error("Error while submitting Catalog: %s", catalog['name'])
+                logging.debug(error)
 
 
 def send_profiles(server_url, serial):
@@ -303,8 +322,11 @@ def send_profiles(server_url, serial):
     profile_out.unlink()
 
     profile_submission = {'serial': serial, 'base64bz2profiles': profiles}
-    sal_client = sal.get_sal_client()
-    sal_client.post('profiles/submit/', data=profile_submission)
+    try:
+        sal.get_sal_client().post('profiles/submit/', data=profile_submission)
+    except requests.exceptions.RequestException as error:
+        logging.error('Failed to submit profiles')
+        logging.debug(error)
 
 
 if __name__ == "__main__":
