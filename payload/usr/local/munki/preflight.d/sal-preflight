@@ -54,11 +54,10 @@ def get_checksums():
         A dict with the script name, plugin name and hash of the script
         or None if no external scripts are used.
     """
-    preflight_url = f"{sal.pref('ServerURL')}/preflight-v2/"
     sal_client = sal.SalClient()
     error_msg = None
     try:
-        response = sal_client.post(preflight_url, data={'os_family': 'Darwin'})
+        response = sal_client.post('preflight-v2/', data={'os_family': 'Darwin'})
     except Exception as error:
         error_msg = str(error)
     if response.status_code != 200:
@@ -97,11 +96,9 @@ def download_scripts(server_scripts):
 
 def download_and_write_script(server_script):
     """Gets script from the server and makes it execuatble."""
-    script_url = (
-        f"{sal.pref('ServerURL')}/preflight-v2/get-script/"
-        f"{server_script['plugin']}/{server_script['filename']}/")
     sal_client = sal.SalClient()
-    response = sal_client.get(script_url)
+    response = sal_client.get(
+        f"preflight-v2/get-script/{server_script['plugin']}/{server_script['filename']}/")
     if response.status_code != 200:
         munkicommon.display_debug2('Error received downloading script:')
         munkicommon.display_debug2(response.text)
