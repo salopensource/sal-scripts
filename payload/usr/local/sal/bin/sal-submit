@@ -211,16 +211,13 @@ def sanitize_submission():
 
 
 def send_checkin(server_url):
-    checkinurl = os.path.join(server_url, 'checkin', '')
-    logging.debug(f"Sending report to {checkinurl}")
-    logging.debug("Checkin Response:")
+    logging.debug("Sending report")
     sal_client = sal.SalClient()
-    return sal_client.post(checkinurl, json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
+    return sal_client.post('checkin/', json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
 
 
 def send_inventory(server_url, serial):
     logging.info('Processing inventory...')
-    hash_url = os.path.join(server_url, 'inventory/hash', serial, '')
     inventory_submit_url = os.path.join(server_url, 'inventory/submit', '')
 
     managed_install_dir = (
@@ -234,7 +231,7 @@ def send_inventory(server_url, serial):
         logging.debug(f"Inventory hash: {inventory_hash}")
         serverhash = None
         sal_client = sal.SalClient()
-        response = sal_client.get(hash_url)
+        response = sal_client.get(f'inventory/hash/{serial}/')
         if response.status_code == 200 and response.text != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
@@ -246,7 +243,6 @@ def send_inventory(server_url, serial):
 
 def send_catalogs(server_url, machine_group_key):
     logging.info('Processing catalogs...')
-    hash_url = os.path.join(server_url, 'catalog/hash', '')
     catalog_submit_url = os.path.join(server_url, 'catalog/submit', '')
     managed_install_dir = (
         CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls') or
@@ -268,7 +264,7 @@ def send_catalogs(server_url, machine_group_key):
         'catalogs': sal.submission_encode(catalog_check_plist)}
     sal_client = sal.SalClient()
     try:
-        response = sal_client.post(hash_url, data=hash_submission)
+        response = sal_client.post('catalog/hash/', data=hash_submission)
     except:
         return
 
@@ -295,8 +291,6 @@ def send_catalogs(server_url, machine_group_key):
 
 def send_profiles(server_url, serial):
     logging.info('Processing profiles...')
-    profile_submit_url = os.path.join(server_url, 'profiles/submit', '')
-
     temp_dir = tempfile.mkdtemp()
     profile_out = pathlib.Path(temp_dir) / 'profiles.plist'
 
@@ -313,7 +307,7 @@ def send_profiles(server_url, serial):
 
     profile_submission = {'serial': serial, 'base64bz2profiles': profiles}
     sal_client = sal.SalClient()
-    sal_client.post(profile_submit_url, data=profile_submission)
+    sal_client.post('profiles/submit/', data=profile_submission)
 
 
 if __name__ == "__main__":
