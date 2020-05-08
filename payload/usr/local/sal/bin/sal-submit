@@ -336,15 +336,25 @@ def send_profiles(serial):
         logging.warning("Couldn't output profiles.")
         return
 
-    profiles = sal.submission_encode(profile_out.read_bytes())
+    profiles = plistlib.loads(profile_out.read_bytes())
     profile_out.unlink()
-
-    profile_submission = {'serial': serial, 'base64bz2profiles': profiles}
+    # Drop all of the payload info we're not going to actual store.
+    for profile in profiles['_computerlevel']:
+        cleansed_payloads = [_payload_cleanse(p) for p in profile.get('ProfileItems', [])]
+        profile['ProfileItems'] = cleansed_payloads
+    logging.debug(profiles)
+    profile_submission = {
+        'serial': serial, 'base64bz2profiles': sal.submission_encode(plistlib.dumps(profiles))}
     try:
         sal.get_sal_client().post('profiles/submit/', data=profile_submission)
     except requests.exceptions.RequestException as error:
         logging.error('Failed to submit profiles')
         logging.debug(error)
+
+
+def _payload_cleanse(payload):
+    stored = ('PayloadIdentifier', 'PayloadUUID', 'PayloadType')
+    return {k: payload[k] for k in stored}
 
 
 if __name__ == "__main__":
