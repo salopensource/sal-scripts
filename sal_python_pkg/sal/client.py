@@ -15,7 +15,7 @@ class SalClient():
     base_url = ''
 
     def __init__(self):
-        sesh = macsesh.KeychainSession()
+        self.sesh = macsesh.KeychainSession()
         # sesh = macsesh.SecureTransportSession()
 
         base_url = pref('ServerURL')
@@ -23,20 +23,26 @@ class SalClient():
 
         ca_cert = pref('CACert')
         if ca_cert:
-            sesh.verify = ca_cert
+            self.sesh.verify = ca_cert
 
         basic_auth = pref('BasicAuth')
         if basic_auth:
             key = pref('key', '')
-            sesh.auth = ('sal', key)
+            self.sesh.auth = ('sal', key)
 
         # TODO: Handle keychain-based certs.
-        ssl_client_cert = pref('SSLClientCertificate')
-        ssl_client_key = pref('SSLClientKey')
-        if ssl_client_cert:
-            sesh.cert = (ssl_client_cert, ssl_client_key) if ssl_client_key else ssl_client_cert
+        cert = pref('SSLClientCertificate')
+        key = pref('SSLClientKey')
+        if cert:
+            self.sesh.cert = (cert, key) if key else cert
 
-        self.sesh = sesh
+    @property
+    def auth(self):
+        return self.sesh.auth
+
+    @auth.setter
+    def auth(self, creds):
+        self.sesh.auth = creds
 
     def get(self, url):
         url = self.build_url(url)
