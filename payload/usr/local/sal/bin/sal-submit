@@ -49,12 +49,11 @@ def main():
     remove_skipped_facts()
     sanitize_submission()
 
-    server_url, _, machine_group_key = sal.get_server_prefs()
+    report = sal.get_checkin_results()
     if logging.getLogger().level <= 10:
-        submission = sal.get_checkin_results()
         logging.debug('Checkin submission:')
-        logging.debug(json.dumps(submission, indent=4, default=sal.serializer))
-    response = send_checkin(server_url)
+        logging.debug(json.dumps(report, indent=4, default=sal.serializer))
+    response = send_checkin(report)
 
     if response and response.status_code == 200:
         sal.clean_results()
@@ -62,9 +61,9 @@ def main():
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
     if run_type != 'manual':
-        send_inventory(server_url, submission['Machine']['extra_data']['serial'])
-        send_catalogs(server_url, machine_group_key)
-        send_profiles(server_url, submission['Machine']['extra_data']['serial'])
+        send_inventory(submission['Machine']['extra_data']['serial'])
+        send_catalogs(machine_group_key)
+        send_profiles(submission['Machine']['extra_data']['serial'])
 
     pathlib.Path('/Users/Shared/.com.salopensource.sal.run').unlink(missing_ok=True)
 
@@ -211,11 +210,10 @@ def sanitize_submission():
     sal.save_results(json.loads(submission_str))
 
 
-def send_checkin(server_url):
+def send_checkin(report):
     logging.debug("Sending report")
     try:
-        response = sal.get_sal_client().post(
-            'checkin/', json=json.loads(pathlib.Path(sal.RESULTS_PATH).read_text()))
+        response = sal.get_sal_client().post('checkin/', json=report)
     except requests.exceptions.RequestException as error:
         logging.error('Failed to send report')
         logging.debug(error)
@@ -223,7 +221,7 @@ def send_checkin(server_url):
     return response
 
 
-def send_inventory(server_url, serial):
+def send_inventory(serial):
     logging.info('Processing inventory...')
     managed_install_dir = (
         CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls') or
@@ -254,9 +252,8 @@ def send_inventory(server_url, serial):
                 logging.debug(error)
 
 
-def send_catalogs(server_url, machine_group_key):
+def send_catalogs(machine_group_key):
     logging.info('Processing catalogs...')
-    catalog_submit_url = os.path.join(server_url, 'catalog/submit', '')
     managed_install_dir = (
         CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls') or
         '/Library/Managed Installs')
@@ -299,13 +296,13 @@ def send_catalogs(server_url, machine_group_key):
 
             logging.debug("Submitting Catalog: %s", catalog['name'])
             try:
-                sal_client.post(catalog_submit_url, data=catalog_submission)
+                sal_client.post('catalog/submit/', data=catalog_submission)
             except requests.exceptions.RequestException as error:
                 logging.error("Error while submitting Catalog: %s", catalog['name'])
                 logging.debug(error)
 
 
-def send_profiles(server_url, serial):
+def send_profiles(serial):
     logging.info('Processing profiles...')
     temp_dir = tempfile.mkdtemp()
     profile_out = pathlib.Path(temp_dir) / 'profiles.plist'
