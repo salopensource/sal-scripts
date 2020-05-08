@@ -17,9 +17,10 @@ import time
 import urllib.parse
 
 import macsesh
-from Foundation import (kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
-                        CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, NSDate, NSArray,
-                        NSDictionary, NSData, NSNull)
+from Foundation import (
+    kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
+    CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, CFPreferencesAppValueIsForced, NSDate,
+    NSArray, NSDictionary, NSData, NSNull)
 
 import sal.version
 
@@ -83,6 +84,17 @@ def pref(pref_name, default=None):
         set_pref(pref_name, pref_value)
 
     return unobjctify(pref_value)
+
+
+def prefs():
+    prefs = (
+        'ServerURL', 'key', 'BasicAuth', 'SyncScripts', 'SkipFacts', 'CACert', 'SendOfflineReport',
+        'SSLClientCertificate', 'SSLClientKey', 'MessageBlacklistPatterns')
+    return {k: {'value': pref(k), 'forced': forced(k)} for k in prefs}
+
+
+def forced(pref):
+    return CFPreferencesAppValueIsForced(pref, BUNDLE_ID)
 
 
 def wait_for_script(scriptname, repeat=3, pause=1):
