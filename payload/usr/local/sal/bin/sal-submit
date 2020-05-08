@@ -27,9 +27,18 @@ CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 
 def main():
     args = get_args()
-    logging.basicConfig(
-        level=get_log_level(args), format='%(asctime)s %(levelname)s %(message)s')
+    log_level = get_log_level(args)
+    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s %(message)s')
     logging.info("%s Version: %s", os.path.basename(__file__), sal.__version__)
+    if log_level == logging.DEBUG:
+        logging.debug("Sal client prefs:")
+        prefs = sal.prefs()
+        if args.url:
+            prefs['ServerURL'] = {'value': args.url, 'forced': 'commandline'}
+        if args.key:
+            prefs['key'] = {'value': args.key, 'forced': 'commandline'}
+        for k, v in prefs.items():
+            logging.debug(f'\t{k}: {v["value"]} ({"profile" if v["forced"] else "prefs"})')
 
     exit_if_not_root()
     if sal.wait_for_script('sal-submit'):
