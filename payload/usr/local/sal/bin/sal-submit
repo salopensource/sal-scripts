@@ -26,8 +26,9 @@ CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
 
 
 def main():
+    args = get_args()
     logging.basicConfig(
-        level=get_log_level(), format='%(asctime)s %(levelname)s %(message)s')
+        level=get_log_level(args), format='%(asctime)s %(levelname)s %(message)s')
     logging.info("%s Version: %s", os.path.basename(__file__), sal.__version__)
 
     exit_if_not_root()
@@ -50,6 +51,15 @@ def main():
     sanitize_submission()
 
     report = sal.get_checkin_results()
+    if args.url:
+        sal.get_sal_client().base_url = args.url
+        logging.debug('Server URL overridden with %s', args.url)
+
+    if args.key:
+        sesh = sal.get_sal_client().auth = ('sal', args.key)
+        # Override the key in the report, since it's used for querying.
+        report['Sal']['extra_data']['key'] = args.key
+        logging.debug('Machine group key overridden with %s', args.key)
     if logging.getLogger().level <= 10:
         logging.debug('Checkin submission:')
         logging.debug(json.dumps(report, indent=4, default=sal.serializer))
@@ -62,7 +72,7 @@ def main():
     # and infrequently changing tasks.
     if run_type != 'manual':
         send_inventory(submission['Machine']['extra_data']['serial'])
-        send_catalogs(machine_group_key)
+        send_catalogs()
         send_profiles(submission['Machine']['extra_data']['serial'])
 
     pathlib.Path('/Users/Shared/.com.salopensource.sal.run').unlink(missing_ok=True)
@@ -70,10 +80,9 @@ def main():
     logging.info('Checkin complete.')
 
 
-def get_log_level():
+def get_log_level(args):
     """Set the verbosity based on options."""
     loglevel = logging.CRITICAL
-    args = get_args()
     if args.debug:
         loglevel = logging.DEBUG
     elif args.verbose:
@@ -88,6 +97,8 @@ def get_args():
         "-d", "--debug", default=False, action="store_true", help="Enable full debug output.")
     parser.add_argument(
         "-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
+    parser.add_argument("-u", "--url", default=None, help="Override the server URL for testing.")
+    parser.add_argument("-k", "--key", default=None, help="Override the machine group key.")
     return parser.parse_args()
 
 
@@ -252,7 +263,7 @@ def send_inventory(serial):
                 logging.debug(error)
 
 
-def send_catalogs(machine_group_key):
+def send_catalogs():
     logging.info('Processing catalogs...')
     managed_install_dir = (
         CFPreferencesCopyAppValue('ManagedInstallDir', 'ManagedInstalls') or
@@ -269,10 +280,11 @@ def send_catalogs(machine_group_key):
 
         catalog_check_plist = plistlib.dumps(check_list)
 
+    sal_client = sal.get_sal_client()
+    machine_group_key = sal_client.auth[1]
     hash_submission = {
         'key': machine_group_key,
         'catalogs': sal.submission_encode(catalog_check_plist)}
-    sal_client = sal.get_sal_client()
     try:
         response = sal_client.post('catalog/hash/', data=hash_submission)
     except requests.exceptions.RequestException as error:
