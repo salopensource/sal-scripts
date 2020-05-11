@@ -1,16 +1,12 @@
 #!/usr/local/sal/Python.framework/Versions/3.8/bin/python3
 
 
-import datetime
 import pathlib
-import os
 import plistlib
 import subprocess
-import sys
 import tempfile
 
 import sal
-sys.path.insert(0, '/usr/local/munki')
 
 
 __version__ = '1.0.0'
@@ -28,10 +24,15 @@ def main():
         submission_item['date_managed'] = profile['ProfileInstallDate']
         submission_item['status'] = 'PRESENT'
 
-        data = {'profile_items': profile['ProfileItems']}
-        data['profile_description'] = profile.get('ProfileDescription', '')
+        data = {}
+        payloads = profile.get('ProfileItems', [])
+        for count, payload in enumerate(payloads, start=1):
+            data[f'payload {count}'] = payload
+
+        data['payload_types'] = ', '.join(p['PayloadType'] for p in payloads)
+        data['profile_description'] = profile.get('ProfileDescription', 'None')
         data['identifier'] = profile['ProfileIdentifier']
-        data['organization'] = profile['ProfileOrganization']
+        data['organization'] = profile['ProfileOrganization'] or 'None'
         data['uuid'] = profile['ProfileUUID']
         data['verification_state'] = profile.get('ProfileVerificationState', '')
         submission_item['data'] = data
@@ -60,6 +61,8 @@ def get_profiles():
     finally:
         profile_out.unlink(missing_ok=True)
         temp_dir.rmdir()
+
+    return profiles
 
 
 if __name__ == "__main__":
