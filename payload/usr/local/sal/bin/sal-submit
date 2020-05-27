@@ -60,6 +60,7 @@ def main():
     sanitize_submission()
 
     report = sal.get_checkin_results()
+    sal.setup_sal_client()
     if args.url:
         sal.get_sal_client().base_url = args.url
         logging.debug('Server URL overridden with %s', args.url)
