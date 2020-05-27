@@ -23,6 +23,7 @@ EXTERNAL_SCRIPTS_DIR = '/usr/local/sal/external_scripts'
 
 def main():
     set_verbosity()
+    sal.setup_sal_client()
 
     if sal.pref('SyncScripts') == True:
         if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
