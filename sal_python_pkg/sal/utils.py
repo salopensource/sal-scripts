@@ -7,22 +7,16 @@ import bz2
 import datetime
 import hashlib
 import json
-import logging
 import os
 import pathlib
 import plistlib
-import stat
 import subprocess
 import time
-import urllib.parse
 
-import macsesh
 from Foundation import (
     kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
     CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, CFPreferencesAppValueIsForced, NSDate,
     NSArray, NSDictionary, NSData, NSNull)
-
-import sal.version
 
 
 BUNDLE_ID = 'com.github.salopensource.sal'
