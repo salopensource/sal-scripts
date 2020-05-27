@@ -1,4 +1,6 @@
 sal_python_pkg/
+# These come along with the sal python pkg, but it doesn't hurt to
+# document that we need them here.
 pyobjc==6.2
 requests==2.23.0
 MacSesh==0.2.1
