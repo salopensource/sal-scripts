@@ -117,7 +117,7 @@ def get_model_code(serial):
 def query_apple_support(serial):
     model_code = get_model_code(serial)
     tree = ElementTree.ElementTree()
-    session = macsesh.KeychainSession()
+    session = macsesh.Session()
     response = session.get(f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US")
     try:
         tree = ElementTree.fromstring(response.text)
