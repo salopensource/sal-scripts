@@ -272,10 +272,14 @@ def run_scripts(dir_path, cli_args=None):
             if cli_args:
                 cmd.append(cli_args)
             try:
-                subprocess.call(cmd, stdin=None)
-                results.append(f"'{script}' ran successfully")
+                subprocess.check_call(cmd, stdin=None)
+                results.append("'{}' ran successfully")
             except (OSError, subprocess.CalledProcessError):
-                results.append(f"'{script}' had errors during execution!")
+                errormsg = "'{}' had error during execution!".format(script)
+                if not error:
+                    results.append(errormsg)
+                else:
+                    raise RuntimeError(errormsg)
         else:
             results.append(f"'{script}' is not executable or has bad permissions")
     return results
