@@ -3,4 +3,4 @@ sal_python_pkg/
 # document that we need them here.
 pyobjc==6.2
 requests==2.23.0
-MacSesh==0.2.1
+MacSesh==0.3.0
