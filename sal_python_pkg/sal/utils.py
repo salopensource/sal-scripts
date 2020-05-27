@@ -229,7 +229,7 @@ def run_scripts(dir_path, cli_args=None, error=False):
     skip_names = {'__pycache__'}
     scripts = (p for p in pathlib.Path(dir_path).iterdir() if p.name not in skip_names)
     for script in scripts:
-        if script.stat().st_mode & stat.S_IWOTH:
+        if not os.access(script, os.X_OK):
             results.append(f"'{script}' is not executable or has bad permissions")
             continue
 
