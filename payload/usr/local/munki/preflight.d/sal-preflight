@@ -65,7 +65,7 @@ def get_checksums():
     if response.status_code != 200:
         munkicommon.display_debug2(f'Request failed with HTTP {response.status_code}')
         return
-    if response and "<h1>Page not found</h1>" not in response.text:
+    if response and "<h1>Page not found</h1>" in response.text:
         munkicommon.display_debug2(response.text)
         return
 
