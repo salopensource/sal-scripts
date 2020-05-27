@@ -1,6 +1,8 @@
 import logging
 import os
 
+from Foundation import CFPreferencesCopyAppValue
+
 from sal.client import get_sal_client, MacKeychainClient
 from sal.utils import pref
 
@@ -42,3 +44,6 @@ def setup_sal_client():
     client.base_url = pref('ServerURL')
 
 
+def mac_pref(domain, key, default=None):
+    val = CFPreferencesCopyAppValue(key, domain)
+    return val if val is not None else default
