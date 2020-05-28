@@ -68,7 +68,7 @@ def process_system_profile():
 
 
 def get_hostname():
-    _, name_type, _ = sal.get_server_prefs()
+    name_type = sal.sal_pref('NameType', default='ComputerName')
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     return get_machine_name(net_config, name_type)
 

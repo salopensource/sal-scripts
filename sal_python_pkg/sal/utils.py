@@ -13,82 +13,8 @@ import plistlib
 import subprocess
 import time
 
-from Foundation import (
-    kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
-    CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, CFPreferencesAppValueIsForced, NSDate,
-    NSArray, NSDictionary, NSData, NSNull)
 
-
-BUNDLE_ID = 'com.github.salopensource.sal'
 RESULTS_PATH = '/usr/local/sal/checkin_results.json'
-ISO_TIME_FORMAT = '%Y-%m-%d %H:%M:%S %z'
-
-
-def set_pref(pref_name, pref_value):
-    """Sets a Sal preference.
-
-    The preference file on disk is located at
-    /Library/Preferences/com.github.salopensource.sal.plist.  This should
-    normally be used only for 'bookkeeping' values; values that control
-    the behavior of munki may be overridden elsewhere (by MCX, for
-    example)
-    """
-    try:
-        CFPreferencesSetValue(
-            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
-        CFPreferencesAppSynchronize(BUNDLE_ID)
-    except Exception:
-        pass
-
-
-def pref(pref_name, default=None):
-    """Return a preference value.
-
-    Since this uses CFPreferencesCopyAppValue, Preferences can be defined
-    several places. Precedence is:
-        - MCX
-        - /var/root/Library/Preferences/com.github.salopensource.sal.plist
-        - /Library/Preferences/com.github.salopensource.sal.plist
-        - default_prefs defined here.
-
-    Returned values are all converted to native python types through the
-    `unobjctify` function; e.g. dates are returned as aware-datetimes,
-    NSDictionary to dict, etc.
-    """
-    default_prefs = {
-        'ServerURL': 'http://sal',
-        'osquery_launchd': 'com.facebook.osqueryd.plist',
-        'SkipFacts': [],
-        'SyncScripts': True,
-        'BasicAuth': True,
-        'GetGrains': False,
-        'GetOhai': False,
-        'LastRunWasOffline': False,
-        'SendOfflineReport': False,
-    }
-
-    pref_value = CFPreferencesCopyAppValue(pref_name, BUNDLE_ID)
-    if pref_value is None and default is not None:
-        pref_value = default
-    elif pref_value is None and pref_name in default_prefs:
-        pref_value = default_prefs.get(pref_name)
-        # we're using a default value. We'll write it out to
-        # /Library/Preferences/<BUNDLE_ID>.plist for admin
-        # discoverability
-        set_pref(pref_name, pref_value)
-
-    return unobjctify(pref_value)
-
-
-def prefs():
-    prefs = (
-        'ServerURL', 'key', 'BasicAuth', 'SyncScripts', 'SkipFacts', 'CACert', 'SendOfflineReport',
-        'SSLClientCertificate', 'SSLClientKey', 'MessageBlacklistPatterns')
-    return {k: {'value': pref(k), 'forced': forced(k)} for k in prefs}
-
-
-def forced(pref):
-    return CFPreferencesAppValueIsForced(pref, BUNDLE_ID)
 
 
 def wait_for_script(scriptname, repeat=3, pause=1):
@@ -241,75 +167,6 @@ def run_scripts(dir_path, cli_args=None, error=False):
                 raise RuntimeError(errormsg)
 
     return results
-
-
-def get_server_prefs():
-    """Get Sal preferences, bailing if required info is missing.
-
-    Returns:
-        Tuple of (Server URL, NameType, and key (business unit key)
-    """
-    # Check for mandatory prefs and bail if any are missing.
-    required_prefs = {
-        'key': pref('key'),
-        'server_url': pref('ServerURL').rstrip('/')}
-
-    for key, val in required_prefs.items():
-        if not val:
-            exit(f'Required Sal preference "{key}" is not set.')
-
-    # Get optional preferences.
-    name_type = pref('NameType', default='ComputerName')
-
-    return required_prefs["server_url"], name_type, required_prefs["key"]
-
-
-def unobjctify(element, safe=False):
-    """Recursively convert nested elements to native python datatypes.
-
-    Types accepted include str, bytes, int, float, bool, None, list,
-    dict, set, tuple, NSArray, NSDictionary, NSData, NSDate, NSNull.
-
-    element: Some (potentially) nested data you want to convert.
-
-    safe: Bool (defaults to False) whether you want printable
-        representations instead of the python equivalent. e.g.  NSDate
-        safe=True becomes a str, safe=False becomes a datetime.datetime.
-        NSData safe=True bcomes a hex str, safe=False becomes bytes. Any
-        type not explicitly handled by this module will raise an
-        exception unless safe=True, where it will instead replace the
-        data with a str of '<UNSUPPORTED TYPE>'
-
-        This is primarily for safety in serialization to plists or
-        output.
-
-    returns: Python equivalent of the original input.
-        e.g. NSArray -> List, NSDictionary -> Dict, etc.
-
-    raises: ValueError for any data that isn't supported (yet!) by this
-        function.
-    """
-    supported_types = (str, bytes, int, float, bool, datetime.datetime)
-    if isinstance(element, supported_types):
-        return element
-    elif isinstance(element, (dict, NSDictionary)):
-        return {k: unobjctify(v, safe=safe) for k, v in element.items()}
-    elif isinstance(element, (list, NSArray)):
-        return [unobjctify(i, safe=safe) for i in element]
-    elif isinstance(element, set):
-        return set([unobjctify(i, safe=safe) for i in element])
-    elif isinstance(element, tuple):
-        return tuple([unobjctify(i, safe=safe) for i in element])
-    elif isinstance(element, NSData):
-        return binascii.hexlify(element) if safe else bytes(element)
-    elif isinstance(element, NSDate):
-        return str(element) if safe else datetime.datetime.strptime(
-            element.description(), ISO_TIME_FORMAT)
-    elif isinstance(element, NSNull) or element is None:
-        return '' if safe else None
-    elif safe:
-        return '<UNSUPPORTED TYPE>'
-    raise ValueError(f"Element type '{type(element)}' is not supported!")
 
 
 def submission_encode(data: bytes) -> bytes:

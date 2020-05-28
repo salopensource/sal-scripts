@@ -25,7 +25,7 @@ def main():
     set_verbosity()
     sal.setup_sal_client()
 
-    if sal.pref('SyncScripts') == True:
+    if sal.sal_pref('SyncScripts') == True:
         if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
             os.makedirs(EXTERNAL_SCRIPTS_DIR)
         server_scripts = get_checksums()
@@ -40,8 +40,8 @@ def main():
 def get_prefs():
     # Check for mandatory prefs and bail if any are missing.
     required_prefs = {}
-    required_prefs["key"] = sal.pref('key')
-    required_prefs["ServerURL"] = sal.pref('ServerURL').rstrip('/')
+    required_prefs["key"] = sal.sal_pref('key')
+    required_prefs["ServerURL"] = sal.sal_pref('ServerURL').rstrip('/')
 
     for key, val in required_prefs.items():
         if not val:
