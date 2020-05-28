@@ -2,68 +2,17 @@
 
 
 import base64
-import binascii
 import bz2
 import datetime
 import hashlib
 import json
 import os
+import platform
 import pathlib
 import plistlib
-import subprocess
-import time
 
 
-RESULTS_PATH = '/usr/local/sal/checkin_results.json'
-
-
-def wait_for_script(scriptname, repeat=3, pause=1):
-    """Tries a few times to wait for a script to finish."""
-    count = 0
-    while count < repeat:
-        if script_is_running(scriptname):
-            time.sleep(pause)
-            count += 1
-        else:
-            return False
-    return True
-
-
-def script_is_running(scriptname):
-    """Returns Process ID for a running python script.
-
-    Not at all stolen from Munki. Honest.
-    """
-    cmd = ['/bin/ps', '-eo', 'pid=,command=']
-    proc = subprocess.Popen(
-        cmd, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    out, _ = proc.communicate()
-    mypid = os.getpid()
-    for line in out.splitlines():
-        try:
-            pid, process = line.split(maxsplit=1)
-        except ValueError:
-            # funky process line, so we'll skip it
-            pass
-        else:
-            args = process.split()
-            try:
-                # first look for Python processes
-                if 'MacOS/Python' in args[0] or 'python' in args[0]:
-                    # look for first argument being scriptname
-                    if scriptname in args[1]:
-                        try:
-                            if int(pid) != mypid:
-                                return True
-                        except ValueError:
-                            # pid must have some funky characters
-                            pass
-            except IndexError:
-                pass
-
-    # if we get here we didn't find a Python script with scriptname
-    # (other than ourselves)
-    return False
+RESULTS_PATH = {'Darwin': '/usr/local/sal/checkin_results.json'}.get(platform.system())
 
 
 def get_hash(file_path):
@@ -86,7 +35,10 @@ def add_plugin_results(plugin, data, historical=False):
         historical (bool): Whether to keep only one record (False) or
             all results (True). Optional, defaults to False.
     """
-    plist_path = pathlib.Path('/usr/local/sal/plugin_results.plist')
+    if platform.system() == 'Darwin':
+        plist_path = pathlib.Path('/usr/local/sal/plugin_results.plist')
+    else:
+        raise NotImplementedError('Please PR a plugin results path for your platform!')
     if plist_path.exists():
         plugin_results = plistlib.loads(plist_path.read_bytes())
     else:
@@ -142,31 +94,6 @@ def serializer(obj):
         # Make sure everything has been set to offset 0 / UTC time.
         obj = obj.astimezone(datetime.timezone.utc).isoformat()
     return obj
-
-
-def run_scripts(dir_path, cli_args=None, error=False):
-    results = []
-    skip_names = {'__pycache__'}
-    scripts = (p for p in pathlib.Path(dir_path).iterdir() if p.name not in skip_names)
-    for script in scripts:
-        if not os.access(script, os.X_OK):
-            results.append(f"'{script}' is not executable or has bad permissions")
-            continue
-
-        cmd = [script]
-        if cli_args:
-            cmd.append(cli_args)
-        try:
-            subprocess.check_call(cmd)
-            results.append(f"'{script}' ran successfully")
-        except (OSError, subprocess.CalledProcessError):
-            errormsg = f"'{script}' had errors during execution!"
-            if not error:
-                results.append(errormsg)
-            else:
-                raise RuntimeError(errormsg)
-
-    return results
 
 
 def submission_encode(data: bytes) -> bytes:

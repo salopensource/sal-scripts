@@ -1,6 +1,10 @@
+import binascii
 import datetime
 import logging
 import os
+import pathlib
+import subprocess
+import time
 
 from Foundation import (
     kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
@@ -156,7 +160,7 @@ def unobjctify(element, safe=False):
     elif isinstance(element, (list, NSArray)):
         return [unobjctify(i, safe=safe) for i in element]
     elif isinstance(element, set):
-        return set([unobjctify(i, safe=safe) for i in element])
+        return {unobjctify(i, safe=safe) for i in element}
     elif isinstance(element, tuple):
         return tuple([unobjctify(i, safe=safe) for i in element])
     elif isinstance(element, NSData):
@@ -169,4 +173,78 @@ def unobjctify(element, safe=False):
     elif safe:
         return '<UNSUPPORTED TYPE>'
     raise ValueError(f"Element type '{type(element)}' is not supported!")
+
+
+def script_is_running(scriptname):
+    """Returns Process ID for a running python script.
+
+    Not at all stolen from Munki. Honest.
+    """
+    cmd = ['/bin/ps', '-eo', 'pid=,command=']
+    proc = subprocess.Popen(
+        cmd, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out, _ = proc.communicate()
+    mypid = os.getpid()
+    for line in out.splitlines():
+        try:
+            pid, process = line.split(maxsplit=1)
+        except ValueError:
+            # funky process line, so we'll skip it
+            pass
+        else:
+            args = process.split()
+            try:
+                # first look for Python processes
+                if 'MacOS/Python' in args[0] or 'python' in args[0]:
+                    # look for first argument being scriptname
+                    if scriptname in args[1]:
+                        try:
+                            if int(pid) != mypid:
+                                return True
+                        except ValueError:
+                            # pid must have some funky characters
+                            pass
+            except IndexError:
+                pass
+
+    # if we get here we didn't find a Python script with scriptname
+    # (other than ourselves)
+    return False
+
+
+def run_scripts(dir_path, cli_args=None, error=False):
+    results = []
+    skip_names = {'__pycache__'}
+    scripts = (p for p in pathlib.Path(dir_path).iterdir() if p.name not in skip_names)
+    for script in scripts:
+        if not os.access(script, os.X_OK):
+            results.append(f"'{script}' is not executable or has bad permissions")
+            continue
+
+        cmd = [script]
+        if cli_args:
+            cmd.append(cli_args)
+        try:
+            subprocess.check_call(cmd)
+            results.append(f"'{script}' ran successfully")
+        except (OSError, subprocess.CalledProcessError):
+            errormsg = f"'{script}' had errors during execution!"
+            if not error:
+                results.append(errormsg)
+            else:
+                raise RuntimeError(errormsg)
+
+    return results
+
+
+def wait_for_script(scriptname, repeat=3, pause=1):
+    """Tries a few times to wait for a script to finish."""
+    count = 0
+    while count < repeat:
+        if script_is_running(scriptname):
+            time.sleep(pause)
+            count += 1
+        else:
+            return False
+    return True
 
