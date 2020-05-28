@@ -7,8 +7,6 @@ except ImportError:
     MacSeshSession = None
 import requests
 
-from sal.utils import pref
-
 
 _client_instance = None
 
