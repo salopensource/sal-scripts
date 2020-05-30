@@ -8,6 +8,7 @@ import subprocess
 import sys
 from xml.etree import ElementTree
 
+import macsesh
 from SystemConfiguration import (
     SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
