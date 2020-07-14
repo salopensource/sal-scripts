@@ -105,6 +105,11 @@ def get_model_code(serial):
             # Remove S prefix from scanned codes.
             serial = serial[1:]
         return serial[8:].upper()
+    
+    elif 11 <= len(serial) <= 12:
+        # 2010 Mac Pros starting with H or Y are 11 characters
+        return serial[8:].upper()
+
     return
 
 
