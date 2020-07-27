@@ -32,7 +32,7 @@ def main():
         data['payload_types'] = ', '.join(p['PayloadType'] for p in payloads)
         data['profile_description'] = profile.get('ProfileDescription', 'None')
         data['identifier'] = profile['ProfileIdentifier']
-        data['organization'] = profile['ProfileOrganization'] or 'None'
+        data['organization'] = profile.get('ProfileOrganization' or 'None')
         data['uuid'] = profile['ProfileUUID']
         data['verification_state'] = profile.get('ProfileVerificationState', '')
         submission_item['data'] = data
