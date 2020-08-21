@@ -2,7 +2,6 @@
 
 
 import datetime
-import os
 import pathlib
 import plistlib
 import sys
@@ -81,24 +80,30 @@ def main():
         munki_submission['managed_items'][item] = submission_item
 
     # Process InstallResults and RemovalResults into update history
-    for report_key, result_type in (('InstallResults', 'PRESENT'), ('RemovalResults', 'ABSENT')):
+    for report_key in ('InstallResults', 'RemovalResults'):
         for item in munki_report.get(report_key, []):
             # Skip Apple software update items.
             if item.get('applesus'):
                 continue
-            history = {}
-            # history = {'update_type': 'apple' if item.get('applesus') else 'third_party'}
-            history['status'] = 'ERROR' if item.get('status') != 0 else result_type
+            # Construct key; we pop the name off because we don't need
+            # to submit it again when we stuff `item` into `data`.
+            name = f'{item.pop("name")} {item["version"]}'
+            submission_item = munki_submission['managed_items'].get(name, {'name': name})
+            if item.get('status') != 0:
+                # Something went wrong, so change the status.
+                submission_item['status'] = 'ERROR'
+            if 'data' in submission_item:
+                submission_item['data'].update(item)
+            else:
+                submission_item['data'] = item
+            if 'type' not in submission_item['data']:
+                submission_item['data']['type'] = (
+                    'ManagedInstalls' if report_key == 'InstallResults' else 'ManagedUninstalls')
             # This UTC datetime gets converted to a naive datetime by
             # plistlib. Fortunately, we can just tell it that it's UTC.
-            history['date_managed'] = item['time'].replace(
+            submission_item['date_managed'] = item['time'].replace(
                 tzinfo=datetime.timezone.utc).isoformat()
-            history['data'] = {'version': item.get('version', '0')}
-            # Add over top of any pending items we may have already built.
-            if item['name'] in munki_submission['managed_items']:
-                munki_submission['managed_items'][item['name']].update(history)
-            else:
-                munki_submission['managed_items'][item['name']] = history
+            munki_submission['managed_items'][name] = submission_item
 
     sal.set_checkin_results('Munki', munki_submission)
 

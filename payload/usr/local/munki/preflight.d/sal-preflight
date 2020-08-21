@@ -6,13 +6,13 @@ Retrieves plugin scripts to run on client.
 
 
 import argparse
-import json
 import os
 import pathlib
 import shutil
 import sys
 import urllib
 
+import requests.exceptions
 import sal
 sys.path.append('/usr/local/munki')
 from munkilib import munkicommon
@@ -23,11 +23,12 @@ EXTERNAL_SCRIPTS_DIR = '/usr/local/sal/external_scripts'
 
 def main():
     set_verbosity()
+    sal.setup_sal_client()
 
-    if sal.pref('SyncScripts') == True:
+    if sal.sal_pref('SyncScripts') == True:
         if not os.path.exists(EXTERNAL_SCRIPTS_DIR):
             os.makedirs(EXTERNAL_SCRIPTS_DIR)
-        server_scripts = get_checksum()
+        server_scripts = get_checksums()
         if server_scripts:
             create_dirs(server_scripts)
             download_scripts(server_scripts)
@@ -39,8 +40,8 @@ def main():
 def get_prefs():
     # Check for mandatory prefs and bail if any are missing.
     required_prefs = {}
-    required_prefs["key"] = sal.pref('key')
-    required_prefs["ServerURL"] = sal.pref('ServerURL').rstrip('/')
+    required_prefs["key"] = sal.sal_pref('key')
+    required_prefs["ServerURL"] = sal.sal_pref('ServerURL').rstrip('/')
 
     for key, val in required_prefs.items():
         if not val:
@@ -48,25 +49,30 @@ def get_prefs():
     return required_prefs
 
 
-def get_checksum():
+def get_checksums():
     """Downloads the checksum of existing scripts.
 
     Returns:
         A dict with the script name, plugin name and hash of the script
         or None if no external scripts are used.
     """
-    preflight_url = f"{sal.pref('ServerURL')}/preflight-v2/"
-    stdout, stderr = sal.send_report(preflight_url, form_data={'os_family': 'Darwin'})
-
-    if stderr:
-        munkicommon.display_debug2(stderr)
-    stdout_list = stdout.split("\n")
-    if "<h1>Page not found</h1>" not in stdout_list:
-        munkicommon.display_debug2(stdout)
+    sal_client = sal.get_sal_client()
+    error_msg = None
+    try:
+        response = sal_client.post('preflight-v2/', data={'os_family': 'Darwin'})
+    except requests.exceptions.RequestException as error:
+        munkicommon.display_debug2(str(error_msg))
+        return
+    if response.status_code != requests.status_codes.codes.okay:
+        munkicommon.display_debug2(f'Request failed with HTTP {response.status_code}')
+        return
+    if response and "<h1>Page not found</h1>" in response.text:
+        munkicommon.display_debug2(response.text)
+        return
 
     try:
-        return json.loads(stdout)
-    except:
+        return response.json()
+    except ValueError:
         munkicommon.display_debug2("Didn't receive valid JSON.")
         return None
 
@@ -91,22 +97,26 @@ def download_scripts(server_scripts):
 
 def download_and_write_script(server_script):
     """Gets script from the server and makes it execuatble."""
-    script_url = (
-        f"{sal.pref('ServerURL')}/preflight-v2/get-script/"
-        f"{server_script['plugin']}/{server_script['filename']}/")
-    stdout, stderr = sal.curl(script_url)
-    if stderr:
+    try:
+        response = sal.get_sal_client().get(
+            f"preflight-v2/get-script/{server_script['plugin']}/{server_script['filename']}/")
+    except requests.exceptions.RequestException as error:
         munkicommon.display_debug2('Error received downloading script:')
-        munkicommon.display_debug2(stderr)
+        munkicommon.display_debug2(str(error))
+        return
+
+    if response.status_code != requests.status_codes.codes.okay:
+        munkicommon.display_debug2('Error received downloading script:')
+        munkicommon.display_debug2(response.text)
 
     script = open(
         os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename']),
         'w')
     try:
-        data = json.loads(stdout)
-    except:
+        data = response.json()
+    except ValueError:
         munkicommon.display_debug2('Did not receive valid JSON when requesting script content.')
-        return False
+        return
 
     script.write(data[0]['content'])
     script.close()

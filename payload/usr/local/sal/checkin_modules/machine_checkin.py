@@ -8,6 +8,7 @@ import subprocess
 import sys
 from xml.etree import ElementTree
 
+import macsesh
 from SystemConfiguration import (
     SCDynamicStoreCreate, SCDynamicStoreCopyValue, SCDynamicStoreCopyConsoleUser)
 
@@ -68,7 +69,7 @@ def process_system_profile():
 
 
 def get_hostname():
-    _, name_type, _ = sal.get_server_prefs()
+    name_type = sal.sal_pref('NameType', default='ComputerName')
     net_config = SCDynamicStoreCreate(None, "net", None, None)
     return get_machine_name(net_config, name_type)
 
@@ -86,7 +87,8 @@ def get_friendly_model(serial):
     """Return friendly model name"""
     if not MODEL_PATH.exists():
         model = cleanup_model(query_apple_support(serial))
-        MODEL_PATH.write_text(model)
+        if model:
+            MODEL_PATH.write_text(model)
     else:
         try:
             model = MODEL_PATH.read_text().strip()
@@ -116,17 +118,13 @@ def get_model_code(serial):
 def query_apple_support(serial):
     model_code = get_model_code(serial)
     tree = ElementTree.ElementTree()
+    session = macsesh.Session()
+    response = session.get(f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US")
     try:
-        response = subprocess.check_output(
-            ['curl', f"https://support-sp.apple.com/sp/product?cc={model_code}&lang=en_US"],
-            text=True)
-    except subprocess.CalledProcessError:
-        pass
-    try:
-        tree = ElementTree.fromstring(response)
+        tree = ElementTree.fromstring(response.text)
     except ElementTree.ParseError:
-        pass
-    return tree.findtext("configCode")
+        tree = None
+    return tree.findtext("configCode") if tree else None
 
 
 def cleanup_model(model):
