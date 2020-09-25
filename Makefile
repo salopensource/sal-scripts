@@ -35,8 +35,8 @@ pack-python: clean-python build-python
 	@sudo chmod -R 755 ${WORK_D}/usr/local/sal/Python.framework
 
 clean-python:
-	@rm -rf Python.framework
-	@rm -rf ${WORK_D}/usr/local/sal/Python.framework
+	@sudo ${RM} -rf Python.framework
+	@sudo ${RM} -rf ${WORK_D}/usr/local/sal/Python.framework
 
 build-python:
 	# Why not just run the make_relocatable_python.py here?
