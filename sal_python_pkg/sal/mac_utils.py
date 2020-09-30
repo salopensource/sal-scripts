@@ -7,39 +7,49 @@ import subprocess
 import time
 
 from Foundation import (
-    kCFPreferencesAnyUser, kCFPreferencesCurrentHost, CFPreferencesSetValue,
-    CFPreferencesAppSynchronize, CFPreferencesCopyAppValue, CFPreferencesAppValueIsForced, NSDate,
-    NSArray, NSDictionary, NSData, NSNull)
+    kCFPreferencesAnyUser,
+    kCFPreferencesCurrentHost,
+    CFPreferencesSetValue,
+    CFPreferencesAppSynchronize,
+    CFPreferencesCopyAppValue,
+    CFPreferencesAppValueIsForced,
+    NSDate,
+    NSArray,
+    NSDictionary,
+    NSData,
+    NSNull,
+)
 
 from sal.client import get_sal_client, MacKeychainClient
 
 
-BUNDLE_ID = 'com.github.salopensource.sal'
-ISO_TIME_FORMAT = '%Y-%m-%d %H:%M:%S %z'
+BUNDLE_ID = "com.github.salopensource.sal"
+ISO_TIME_FORMAT = "%Y-%m-%d %H:%M:%S %z"
 
 
 def setup_sal_client():
-    ca_cert = sal_pref('CACert', '')
-    cert = sal_pref('SSLClientCertificate', '')
-    key = sal_pref('SSLClientKey', '')
+    ca_cert = sal_pref("CACert", "")
+    cert = sal_pref("SSLClientCertificate", "")
+    key = sal_pref("SSLClientKey", "")
     exists = map(os.path.exists, (ca_cert, cert, key))
     if any(exists):
         if not all(exists):
             logging.warning(
-                'Argument warning! If using the `CACert`, `SSLClientCertificate`, or '
-                '`SSLClientKey` prefs, they must all be either paths to cert files or the '
-                'common name of the certs to find in the keychain.')
+                "Argument warning! If using the `CACert`, `SSLClientCertificate`, or "
+                "`SSLClientKey` prefs, they must all be either paths to cert files or the "
+                "common name of the certs to find in the keychain."
+            )
 
         # If any of the above have been passed as a path, we have to
         # use a vanilla Session.
-        logging.debug('Using SalClient')
+        logging.debug("Using SalClient")
         client = get_sal_client()
     else:
         # Assume that any passed certs are by CN since they don't
         # exist as files anywhere.
         # If we're going to use the keychain, we need to use a
         # macsesh
-        logging.debug('Using MacKeychainClient')
+        logging.debug("Using MacKeychainClient")
         client = get_sal_client(MacKeychainClient)
 
     if ca_cert:
@@ -47,12 +57,12 @@ def setup_sal_client():
     if cert:
         client.cert = (cert, key) if key else cert
 
-    basic_auth = sal_pref('BasicAuth')
+    basic_auth = sal_pref("BasicAuth")
     if basic_auth:
-        key = sal_pref('key', '')
-        client.auth = ('sal', key)
+        key = sal_pref("key", "")
+        client.auth = ("sal", key)
 
-    client.base_url = sal_pref('ServerURL')
+    client.base_url = sal_pref("ServerURL")
 
 
 def mac_pref(domain, key, default=None):
@@ -71,7 +81,12 @@ def set_sal_pref(pref_name, pref_value):
     """
     try:
         CFPreferencesSetValue(
-            pref_name, pref_value, BUNDLE_ID, kCFPreferencesAnyUser, kCFPreferencesCurrentHost)
+            pref_name,
+            pref_value,
+            BUNDLE_ID,
+            kCFPreferencesAnyUser,
+            kCFPreferencesCurrentHost,
+        )
         CFPreferencesAppSynchronize(BUNDLE_ID)
     except Exception:
         pass
@@ -92,15 +107,15 @@ def sal_pref(pref_name, default=None):
     NSDictionary to dict, etc.
     """
     default_prefs = {
-        'ServerURL': 'http://sal',
-        'osquery_launchd': 'com.facebook.osqueryd.plist',
-        'SkipFacts': [],
-        'SyncScripts': True,
-        'BasicAuth': True,
-        'GetGrains': False,
-        'GetOhai': False,
-        'LastRunWasOffline': False,
-        'SendOfflineReport': False,
+        "ServerURL": "http://sal",
+        "osquery_launchd": "com.facebook.osqueryd.plist",
+        "SkipFacts": [],
+        "SyncScripts": True,
+        "BasicAuth": True,
+        "GetGrains": False,
+        "GetOhai": False,
+        "LastRunWasOffline": False,
+        "SendOfflineReport": False,
     }
 
     pref_value = mac_pref(BUNDLE_ID, pref_name, default)
@@ -122,9 +137,18 @@ def forced(pref, bundle_identifier=BUNDLE_ID):
 
 def prefs_report():
     prefs = (
-        'ServerURL', 'key', 'BasicAuth', 'SyncScripts', 'SkipFacts', 'CACert', 'SendOfflineReport',
-        'SSLClientCertificate', 'SSLClientKey', 'MessageBlacklistPatterns')
-    return {k: {'value': sal_pref(k), 'forced': forced(k)} for k in prefs}
+        "ServerURL",
+        "key",
+        "BasicAuth",
+        "SyncScripts",
+        "SkipFacts",
+        "CACert",
+        "SendOfflineReport",
+        "SSLClientCertificate",
+        "SSLClientKey",
+        "MessageBlacklistPatterns",
+    )
+    return {k: {"value": sal_pref(k), "forced": forced(k)} for k in prefs}
 
 
 def unobjctify(element, safe=False):
@@ -166,12 +190,15 @@ def unobjctify(element, safe=False):
     elif isinstance(element, NSData):
         return binascii.hexlify(element) if safe else bytes(element)
     elif isinstance(element, NSDate):
-        return str(element) if safe else datetime.datetime.strptime(
-            element.description(), ISO_TIME_FORMAT)
+        return (
+            str(element)
+            if safe
+            else datetime.datetime.strptime(element.description(), ISO_TIME_FORMAT)
+        )
     elif isinstance(element, NSNull) or element is None:
-        return '' if safe else None
+        return "" if safe else None
     elif safe:
-        return '<UNSUPPORTED TYPE>'
+        return "<UNSUPPORTED TYPE>"
     raise ValueError(f"Element type '{type(element)}' is not supported!")
 
 
@@ -180,9 +207,10 @@ def script_is_running(scriptname):
 
     Not at all stolen from Munki. Honest.
     """
-    cmd = ['/bin/ps', '-eo', 'pid=,command=']
+    cmd = ["/bin/ps", "-eo", "pid=,command="]
     proc = subprocess.Popen(
-        cmd, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        cmd, bufsize=1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     out, _ = proc.communicate()
     mypid = os.getpid()
     for line in out.splitlines():
@@ -195,7 +223,7 @@ def script_is_running(scriptname):
             args = process.split()
             try:
                 # first look for Python processes
-                if 'MacOS/Python' in args[0] or 'python' in args[0]:
+                if "MacOS/Python" in args[0] or "python" in args[0]:
                     # look for first argument being scriptname
                     if scriptname in args[1]:
                         try:
@@ -214,7 +242,7 @@ def script_is_running(scriptname):
 
 def run_scripts(dir_path, cli_args=None, error=False):
     results = []
-    skip_names = {'__pycache__'}
+    skip_names = {"__pycache__"}
     scripts = (p for p in pathlib.Path(dir_path).iterdir() if p.name not in skip_names)
     for script in scripts:
         if not os.access(script, os.X_OK):
@@ -247,4 +275,3 @@ def wait_for_script(scriptname, repeat=3, pause=1):
         else:
             return False
     return True
-

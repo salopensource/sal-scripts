@@ -12,12 +12,12 @@ import pathlib
 import plistlib
 
 
-RESULTS_PATH = {'Darwin': '/usr/local/sal/checkin_results.json'}.get(platform.system())
+RESULTS_PATH = {"Darwin": "/usr/local/sal/checkin_results.json"}.get(platform.system())
 
 
 def get_hash(file_path):
     """Return sha256 hash of file_path."""
-    text = b''
+    text = b""
     if (path := pathlib.Path(file_path)).is_file():
         text = path.read_bytes()
     return hashlib.sha256(text).hexdigest()
@@ -35,16 +35,16 @@ def add_plugin_results(plugin, data, historical=False):
         historical (bool): Whether to keep only one record (False) or
             all results (True). Optional, defaults to False.
     """
-    if platform.system() == 'Darwin':
-        plist_path = pathlib.Path('/usr/local/sal/plugin_results.plist')
+    if platform.system() == "Darwin":
+        plist_path = pathlib.Path("/usr/local/sal/plugin_results.plist")
     else:
-        raise NotImplementedError('Please PR a plugin results path for your platform!')
+        raise NotImplementedError("Please PR a plugin results path for your platform!")
     if plist_path.exists():
         plugin_results = plistlib.loads(plist_path.read_bytes())
     else:
         plugin_results = []
 
-    plugin_results.append({'plugin': plugin, 'historical': historical, 'data': data})
+    plugin_results.append({"plugin": plugin, "historical": historical, "data": data})
     plist_path.write_bytes(plistlib.dumps(plugin_results))
 
 
@@ -67,7 +67,7 @@ def clean_results():
 
 def save_results(data):
     """Replace all data in the results file."""
-    with open(RESULTS_PATH, 'w') as results_handle:
+    with open(RESULTS_PATH, "w") as results_handle:
         json.dump(data, results_handle, default=serializer)
 
 

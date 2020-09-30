@@ -14,7 +14,7 @@ _client_instance = None
 class SalClient:
 
     session_class = requests.Session
-    _base_url = ''
+    _base_url = ""
     _auth = None
     _cert = None
     _verify = None
@@ -34,13 +34,14 @@ class SalClient:
             self.session.verify = self._verify
 
             # self.session.cert = (self._cert, self._key) if self._key else self._cert
+
     @property
     def base_url(self):
         return self._base_url
 
     @base_url.setter
     def base_url(self, base_url):
-        self._base_url = base_url if not base_url.endswith('/') else base_url[:-1]
+        self._base_url = base_url if not base_url.endswith("/") else base_url[:-1]
 
     @property
     def auth(self):
@@ -75,21 +76,21 @@ class SalClient:
 
     def post(self, url, data=None, json=None):
         url = self.build_url(url)
-        kwargs = {'timeout': self.post_timeout}
+        kwargs = {"timeout": self.post_timeout}
         if json:
-            kwargs['json'] = json
+            kwargs["json"] = json
         else:
-            kwargs['data'] = data
+            kwargs["data"] = data
         return self.log_response(self.session.post(url, **kwargs))
 
     def log_response(self, response):
-        logging.debug(f'Response HTTP {response.status_code}: {response.text}')
+        logging.debug(f"Response HTTP {response.status_code}: {response.text}")
         return response
 
     def build_url(self, url):
-        url = url[1:] if url.startswith('/') else url
-        url = url[:-1] if url.endswith('/') else url
-        return '/'.join((self.base_url, url)) + '/'
+        url = url[1:] if url.startswith("/") else url
+        url = url[:-1] if url.endswith("/") else url
+        return "/".join((self.base_url, url)) + "/"
 
 
 class MacKeychainClient(SalClient):
@@ -100,6 +101,10 @@ class MacKeychainClient(SalClient):
 def get_sal_client(with_client_class=None):
     global _client_instance
     if _client_instance is None or (
-            with_client_class is not None and not isinstance(_client_instance, with_client_class)):
-        _client_instance =  with_client_class() if with_client_class is not None else SalClient()
+        with_client_class is not None
+        and not isinstance(_client_instance, with_client_class)
+    ):
+        _client_instance = (
+            with_client_class() if with_client_class is not None else SalClient()
+        )
     return _client_instance

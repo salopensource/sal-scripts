@@ -17,4 +17,3 @@ setup(
     ],
     packages=["sal"],
 )
-
