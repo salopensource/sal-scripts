@@ -21,31 +21,34 @@ import requests.exceptions
 import sal
 
 
-CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
+# CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
+CHECKIN_MODULES_DIR = "payload/usr/local/sal/checkin_modules"
 
 
 def main():
     args = get_args()
     log_level = get_log_level(args)
-    logging.basicConfig(level=log_level, format='%(asctime)s %(levelname)s %(message)s')
+    logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(message)s")
     logging.info("%s Version: %s", os.path.basename(__file__), sal.__version__)
     if log_level == logging.DEBUG:
         logging.debug("Sal client prefs:")
         prefs = sal.prefs_report()
         if args.url:
-            prefs['ServerURL'] = {'value': args.url, 'forced': 'commandline'}
+            prefs["ServerURL"] = {"value": args.url, "forced": "commandline"}
         if args.key:
-            prefs['key'] = {'value': args.key, 'forced': 'commandline'}
+            prefs["key"] = {"value": args.key, "forced": "commandline"}
         for k, v in prefs.items():
-            logging.debug(f'\t{k}: {v["value"]} ({"profile" if v["forced"] else "prefs"})')
+            logging.debug(
+                f'\t{k}: {v["value"]} ({"profile" if v["forced"] else "prefs"})'
+            )
 
     exit_if_not_root()
-    if sal.wait_for_script('sal-submit'):
-        exit('Another instance of sal-submit is already running. Exiting.')
-    if sal.wait_for_script('managedsoftwareupdate'):
-        exit('managedsoftwareupdate is running. Exiting.')
+    if sal.wait_for_script("sal-submit"):
+        exit("Another instance of sal-submit is already running. Exiting.")
+    if sal.wait_for_script("managedsoftwareupdate"):
+        exit("managedsoftwareupdate is running. Exiting.")
 
-    logging.info('Processing checkin modules...')
+    logging.info("Processing checkin modules...")
     script_results = sal.run_scripts(CHECKIN_MODULES_DIR)
     for message in script_results:
         logging.debug(message)
@@ -62,15 +65,15 @@ def main():
     sal.setup_sal_client()
     if args.url:
         sal.get_sal_client().base_url = args.url
-        logging.debug('Server URL overridden with %s', args.url)
+        logging.debug("Server URL overridden with %s", args.url)
 
     if args.key:
-        sesh = sal.get_sal_client().auth = ('sal', args.key)
+        sesh = sal.get_sal_client().auth = ("sal", args.key)
         # Override the key in the report, since it's used for querying.
-        report['Sal']['extra_data']['key'] = args.key
-        logging.debug('Machine group key overridden with %s', args.key)
+        report["Sal"]["extra_data"]["key"] = args.key
+        logging.debug("Machine group key overridden with %s", args.key)
     if logging.getLogger().level <= 10:
-        logging.debug('Checkin submission:')
+        logging.debug("Checkin submission:")
         logging.debug(json.dumps(report, indent=4, default=sal.serializer))
     response = send_checkin(report)
 
@@ -79,14 +82,14 @@ def main():
 
     # Speed up manual runs by skipping these potentially slow-running,
     # and infrequently changing tasks.
-    if run_type != 'manual':
-        send_inventory(submission['Machine']['extra_data']['serial'])
+    if run_type != "manual":
+        send_inventory(submission["Machine"]["extra_data"]["serial"])
         send_catalogs()
-        send_profiles(submission['Machine']['extra_data']['serial'])
+        send_profiles(submission["Machine"]["extra_data"]["serial"])
 
-    pathlib.Path('/Users/Shared/.com.salopensource.sal.run').unlink(missing_ok=True)
+    pathlib.Path("/Users/Shared/.com.salopensource.sal.run").unlink(missing_ok=True)
 
-    logging.info('Checkin complete.')
+    logging.info("Checkin complete.")
 
 
 def get_log_level(args):
@@ -103,11 +106,25 @@ def get_args():
     """Return commandline options."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-d", "--debug", default=False, action="store_true", help="Enable full debug output.")
+        "-d",
+        "--debug",
+        default=False,
+        action="store_true",
+        help="Enable full debug output.",
+    )
     parser.add_argument(
-        "-v", "--verbose", default=False, action="store_true", help="Enable verbose output.")
-    parser.add_argument("-u", "--url", default=None, help="Override the server URL for testing.")
-    parser.add_argument("-k", "--key", default=None, help="Override the machine group key.")
+        "-v",
+        "--verbose",
+        default=False,
+        action="store_true",
+        help="Enable verbose output.",
+    )
+    parser.add_argument(
+        "-u", "--url", default=None, help="Override the server URL for testing."
+    )
+    parser.add_argument(
+        "-k", "--key", default=None, help="Override the machine group key."
+    )
     return parser.parse_args()
 
 
@@ -118,24 +135,24 @@ def exit_if_not_root():
 
 
 def get_run_type(submission):
-    munki = submission.get('Munki', {})
-    munki_extras = munki.get('extra_data', {})
-    return munki_extras.get('runtype', '')
+    munki = submission.get("Munki", {})
+    munki_extras = munki.get("extra_data", {})
+    return munki_extras.get("runtype", "")
 
 
 def run_plugins(run_type):
-    logging.info('Processing plugins...')
-    plugin_results_path = pathlib.Path('/usr/local/sal/plugin_results.plist')
+    logging.info("Processing plugins...")
+    plugin_results_path = pathlib.Path("/usr/local/sal/plugin_results.plist")
     try:
         run_external_scripts(run_type)
         plugin_results = get_plugin_results(plugin_results_path)
     finally:
         plugin_results_path.unlink(missing_ok=True)
-    sal.set_checkin_results('plugin_results', plugin_results)
+    sal.set_checkin_results("plugin_results", plugin_results)
 
 
 def run_external_scripts(run_type):
-    external_scripts_dir = pathlib.Path('/usr/local/sal/external_scripts')
+    external_scripts_dir = pathlib.Path("/usr/local/sal/external_scripts")
 
     if external_scripts_dir.exists():
         for folder in external_scripts_dir.iterdir():
@@ -143,7 +160,10 @@ def run_external_scripts(run_type):
                 if script.stat().st_mode & stat.S_IXUSR:
                     try:
                         subprocess.check_call(
-                            [script, run_type], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            [script, run_type],
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                        )
                         logging.debug("%s ran successfuly.", script)
                     except OSError:
                         logging.warning("Couldn't run %s", script)
@@ -160,15 +180,15 @@ def get_plugin_results(plugin_results_plist):
         try:
             plist_data = plistlib.loads(plugin_results_plist.read_bytes())
         except plistlib.InvalidFileException:
-            logging.warning('Could not read external data plist.')
+            logging.warning("Could not read external data plist.")
     else:
-        logging.warning('No external data plist found.')
+        logging.warning("No external data plist found.")
 
     return sal.unobjctify(plist_data)
 
 
 def remove_blacklisted_messages():
-    patterns = sal.sal_pref('MessageBlacklistPatterns', [])
+    patterns = sal.sal_pref("MessageBlacklistPatterns", [])
     if patterns:
         compiled = [re.compile(p) for p in patterns]
         update = False
@@ -180,8 +200,8 @@ def remove_blacklisted_messages():
                 continue
 
             removals = []
-            for message in results.get('messages', []):
-                subject = message.get('text', '')
+            for message in results.get("messages", []):
+                subject = message.get("text", "")
                 if any(p.search(subject) for p in compiled):
                     removals.append(message)
 
@@ -189,14 +209,14 @@ def remove_blacklisted_messages():
                 update = True
                 for removal in removals:
                     logging.debug("Removing message: '%s'", removal)
-                    results['messages'].remove(removal)
+                    results["messages"].remove(removal)
 
         if update:
             sal.save_results(submission)
 
 
 def remove_skipped_facts():
-    if skip_facts := sal.sal_pref('SkipFacts'):
+    if skip_facts := sal.sal_pref("SkipFacts"):
         update = False
         submission = sal.get_checkin_results()
 
@@ -206,7 +226,7 @@ def remove_skipped_facts():
                 continue
 
             removals = []
-            for fact in results.get('facts', []):
+            for fact in results.get("facts", []):
                 if fact in skip_facts:
                     removals.append(fact)
 
@@ -214,7 +234,7 @@ def remove_skipped_facts():
                 update = True
                 for removal in removals:
                     logging.debug("Removing fact: '%s'", removal)
-                    results['facts'].pop(removal)
+                    results["facts"].pop(removal)
 
         if update:
             sal.save_results(submission)
@@ -226,27 +246,28 @@ def sanitize_submission():
     submission = sal.get_checkin_results()
     # json will serialize null chars to '\\u0000', so we raw string it
     # not escape, and replace it with nothing.
-    submission_str = json.dumps(submission).replace(r'\\u0000', '')
+    submission_str = json.dumps(submission).replace(r"\\u0000", "")
     sal.save_results(json.loads(submission_str))
 
 
 def send_checkin(report):
     logging.debug("Sending report")
     try:
-        response = sal.get_sal_client().post('checkin/', json=report)
+        response = sal.get_sal_client().post("checkin/", json=report)
     except requests.exceptions.RequestException as error:
-        logging.error('Failed to send report')
+        logging.error("Failed to send report")
         logging.debug(error)
         response = None
     return response
 
 
 def send_inventory(serial):
-    logging.info('Processing inventory...')
+    logging.info("Processing inventory...")
     managed_install_dir = sal.mac_pref(
-        'ManagedInstalls', 'ManagedInstallDir', '/Library/Managed Installs')
-    inventory_plist = pathlib.Path(managed_install_dir) / 'ApplicationInventory.plist'
-    logging.debug('ApplicationInventory.plist Path: %s', inventory_plist)
+        "ManagedInstalls", "ManagedInstallDir", "/Library/Managed Installs"
+    )
+    inventory_plist = pathlib.Path(managed_install_dir) / "ApplicationInventory.plist"
+    logging.debug("ApplicationInventory.plist Path: %s", inventory_plist)
 
     if inventory := inventory_plist.read_bytes():
         inventory_hash = sal.get_hash(inventory_plist)
@@ -254,48 +275,53 @@ def send_inventory(serial):
         serverhash = None
         sal_client = sal.get_sal_client()
         try:
-            response = sal_client.get(f'inventory/hash/{serial}/')
+            response = sal_client.get(f"inventory/hash/{serial}/")
         except requests.exceptions.RequestException as error:
-            logging.error('Failed to get inventory hash')
+            logging.error("Failed to get inventory hash")
             logging.debug(error)
             return
         if response.status_code == 200 and response.text != inventory_hash:
             logging.info("Inventory is out of date; submitting...")
             inventory_submission = {
-                'serial': serial,
-                'base64bz2inventory': sal.submission_encode(inventory)}
+                "serial": serial,
+                "base64bz2inventory": sal.submission_encode(inventory),
+            }
             try:
-                sal_client.post('inventory/submit/', data=inventory_submission)
+                sal_client.post("inventory/submit/", data=inventory_submission)
             except requests.exceptions.RequestException as error:
-                logging.error('Failed to submit inventory')
+                logging.error("Failed to submit inventory")
                 logging.debug(error)
 
 
 def send_catalogs():
-    logging.info('Processing catalogs...')
+    logging.info("Processing catalogs...")
     managed_install_dir = sal.mac_pref(
-        'ManagedInstalls', 'ManagedInstallDir', '/Library/Managed Installs')
-    catalog_dir = pathlib.Path(managed_install_dir) / 'catalogs'
+        "ManagedInstalls", "ManagedInstallDir", "/Library/Managed Installs"
+    )
+    catalog_dir = pathlib.Path(managed_install_dir) / "catalogs"
 
     check_list = []
     if catalog_dir.exists():
         for catalog_file in catalog_dir.iterdir():
             # don't operate on hidden files (.DS_Store etc)
-            if not str(catalog_file).startswith('.'):
+            if not str(catalog_file).startswith("."):
                 catalog_hash = sal.get_hash(catalog_file)
-                check_list.append({'name': str(catalog_file), 'sha256hash': catalog_hash})
+                check_list.append(
+                    {"name": str(catalog_file), "sha256hash": catalog_hash}
+                )
 
         catalog_check_plist = plistlib.dumps(check_list)
 
     sal_client = sal.get_sal_client()
     machine_group_key = sal_client.auth[1]
     hash_submission = {
-        'key': machine_group_key,
-        'catalogs': sal.submission_encode(catalog_check_plist)}
+        "key": machine_group_key,
+        "catalogs": sal.submission_encode(catalog_check_plist),
+    }
     try:
-        response = sal_client.post('catalog/hash/', data=hash_submission)
+        response = sal_client.post("catalog/hash/", data=hash_submission)
     except requests.exceptions.RequestException as error:
-        logging.error('Failed to get catalog hashes')
+        logging.error("Failed to get catalog hashes")
         logging.debug(error)
         return
 
@@ -306,28 +332,29 @@ def send_catalogs():
 
     for catalog in check_list:
         if catalog not in remote_data:
-            contents = (pathlib.Path(catalog_dir) / catalog['name']).read_bytes()
+            contents = (pathlib.Path(catalog_dir) / catalog["name"]).read_bytes()
             catalog_submission = {
-                'key': machine_group_key,
-                'base64bz2catalog': sal.submission_encode(contents),
-                'name': catalog['name'],
-                'sha256hash': catalog['sha256hash']}
+                "key": machine_group_key,
+                "base64bz2catalog": sal.submission_encode(contents),
+                "name": catalog["name"],
+                "sha256hash": catalog["sha256hash"],
+            }
 
-            logging.debug("Submitting Catalog: %s", catalog['name'])
+            logging.debug("Submitting Catalog: %s", catalog["name"])
             try:
-                sal_client.post('catalog/submit/', data=catalog_submission)
+                sal_client.post("catalog/submit/", data=catalog_submission)
             except requests.exceptions.RequestException as error:
-                logging.error("Error while submitting Catalog: %s", catalog['name'])
+                logging.error("Error while submitting Catalog: %s", catalog["name"])
                 logging.debug(error)
 
 
 def send_profiles(serial):
-    logging.info('Processing profiles...')
+    logging.info("Processing profiles...")
     temp_dir = tempfile.mkdtemp()
-    profile_out = pathlib.Path(temp_dir) / 'profiles.plist'
+    profile_out = pathlib.Path(temp_dir) / "profiles.plist"
 
-    cmd = ['/usr/bin/profiles', '-C', '-o', profile_out]
-    dev_null = open(os.devnull, 'w')
+    cmd = ["/usr/bin/profiles", "-C", "-o", profile_out]
+    dev_null = open(os.devnull, "w")
     try:
         subprocess.call(cmd, stdout=dev_null)
     except OSError:
@@ -337,21 +364,25 @@ def send_profiles(serial):
     profiles = plistlib.loads(profile_out.read_bytes())
     profile_out.unlink()
     # Drop all of the payload info we're not going to actual store.
-    for profile in profiles['_computerlevel']:
-        cleansed_payloads = [_payload_cleanse(p) for p in profile.get('ProfileItems', [])]
-        profile['ProfileItems'] = cleansed_payloads
+    for profile in profiles["_computerlevel"]:
+        cleansed_payloads = [
+            _payload_cleanse(p) for p in profile.get("ProfileItems", [])
+        ]
+        profile["ProfileItems"] = cleansed_payloads
     logging.debug(profiles)
     profile_submission = {
-        'serial': serial, 'base64bz2profiles': sal.submission_encode(plistlib.dumps(profiles))}
+        "serial": serial,
+        "base64bz2profiles": sal.submission_encode(plistlib.dumps(profiles)),
+    }
     try:
-        sal.get_sal_client().post('profiles/submit/', data=profile_submission)
+        sal.get_sal_client().post("profiles/submit/", data=profile_submission)
     except requests.exceptions.RequestException as error:
-        logging.error('Failed to submit profiles')
+        logging.error("Failed to submit profiles")
         logging.debug(error)
 
 
 def _payload_cleanse(payload):
-    stored = ('PayloadIdentifier', 'PayloadUUID', 'PayloadType')
+    stored = ("PayloadIdentifier", "PayloadUUID", "PayloadType")
     return {k: payload[k] for k in stored}
 
 
