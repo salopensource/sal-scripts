@@ -72,7 +72,7 @@ dataTask = session.dataTask(with: req) { data, response, error in
     } else if let data = data,
         let response = response as? HTTPURLResponse,
         response.statusCode == 200 {
-        var responseData:String  = String(data:data, encoding:String.Encoding.utf8)!
+        let responseData:String  = String(data:data, encoding:String.Encoding.utf8)!
         print(responseData)
     } else {
         print("really no beans")

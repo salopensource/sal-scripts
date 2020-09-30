@@ -12,7 +12,7 @@ sys.path.insert(0, "/usr/local/munki")
 from munkilib import munkicommon
 
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def main():
