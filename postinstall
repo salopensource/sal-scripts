@@ -6,6 +6,10 @@ if [ "$3" == "/" ]; then
 
     /bin/launchctl unload /Library/LaunchDaemons/com.salopensource.sal.random.runner.plist
     /bin/launchctl load /Library/LaunchDaemons/com.salopensource.sal.random.runner.plist
+
+    /usr/bin/find "/usr/local/sal" -name '*.pyc' -delete
+else
+    /usr/bin/find "$3/usr/local/sal" -name '*.pyc' -delete
 fi
 
 # This shouldn't kill the whole package install
