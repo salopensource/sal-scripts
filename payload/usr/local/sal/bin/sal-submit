@@ -155,6 +155,8 @@ def run_external_scripts(run_type):
 
     if external_scripts_dir.exists():
         for folder in external_scripts_dir.iterdir():
+            if str(catalog_file).startswith("."):
+                continue
             for script in folder.iterdir():
                 if script.stat().st_mode & stat.S_IXUSR:
                     try:
@@ -163,7 +165,7 @@ def run_external_scripts(run_type):
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                         )
-                        logging.debug("%s ran successfuly.", script)
+                        logging.debug("%s ran successfully.", script)
                     except OSError:
                         logging.warning("Couldn't run %s", script)
                     except subprocess.CalledProcessError:
