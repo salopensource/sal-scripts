@@ -21,8 +21,7 @@ import requests.exceptions
 import sal
 
 
-# CHECKIN_MODULES_DIR = '/usr/local/sal/checkin_modules'
-CHECKIN_MODULES_DIR = "payload/usr/local/sal/checkin_modules"
+CHECKIN_MODULES_DIR = "/usr/local/sal/checkin_modules"
 
 
 def main():
