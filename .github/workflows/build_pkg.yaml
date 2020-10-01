@@ -8,10 +8,8 @@ jobs:
     steps:
       - name: Install Luggage
         run: |
-          git clone https://github.com/unixorn/luggage
-          cd luggage
-          sudo make bootstrap_files
-          cd $GITHUB_WORKSPACE
+          mkdir -p /usr/local/share/luggage
+          cp -a .github/luggage/. /usr/local/share/luggage/
       - name: make pkg
         run: |
           sudo make pkg
