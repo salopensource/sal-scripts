@@ -1,0 +1,12 @@
+name: black
+
+on: push
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: black
+        uses: jpetrucciani/black-check@master
+        with:
+          path: "."
