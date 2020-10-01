@@ -9,7 +9,7 @@ jobs:
       - name: Install Luggage
         run: |
           mkdir -p /usr/local/share/luggage
-          cp -a $GITHUB_WORKSPACE/.github/luggage/. /usr/local/share/luggage/
+          cp -a luggage/. /usr/local/share/luggage/
       - name: make pkg
         run: |
           sudo make pkg
