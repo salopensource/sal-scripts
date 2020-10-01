@@ -155,7 +155,7 @@ def run_external_scripts(run_type):
 
     if external_scripts_dir.exists():
         for folder in external_scripts_dir.iterdir():
-            if str(catalog_file).startswith("."):
+            if str(folder).startswith("."):
                 continue
             for script in folder.iterdir():
                 if script.stat().st_mode & stat.S_IXUSR:
