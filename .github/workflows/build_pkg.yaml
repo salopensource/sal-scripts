@@ -6,6 +6,8 @@ jobs:
   build_pkg:
     runs-on: macos-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v1
       # - name: Install Luggage
       #   run: |
       #     mkdir -p /usr/local/share/luggage
