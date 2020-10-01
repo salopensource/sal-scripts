@@ -1,0 +1,17 @@
+name: Build Package
+
+on: push
+
+jobs:
+  build_pkg:
+    runs-on: macos-latest
+    steps:
+      - name: Install Luggage
+        run: |
+          git clone https://github.com/unixorn/luggage
+          cd luggage
+          sudo make bootstrap_files
+          cd $GITHUB_WORKSPACE
+      - name: make pkg
+        run: |
+          sudo make pkg
