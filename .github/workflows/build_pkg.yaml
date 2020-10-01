@@ -6,11 +6,11 @@ jobs:
   build_pkg:
     runs-on: macos-latest
     steps:
-      - name: Install Luggage
-        run: |
-          mkdir -p /usr/local/share/luggage
-          cp luggage/luggage.make /usr/local/share/luggage/luggage.make
-          cp luggage/prototype.plist /usr/local/share/luggage/prototype.plist
+      # - name: Install Luggage
+      #   run: |
+      #     mkdir -p /usr/local/share/luggage
+      #     cp luggage/luggage.make /usr/local/share/luggage/luggage.make
+      #     cp luggage/prototype.plist /usr/local/share/luggage/prototype.plist
       - name: make pkg
         run: |
           sudo make pkg

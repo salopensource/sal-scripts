@@ -1,5 +1,5 @@
 USE_PKGBUILD=1
-include /usr/local/share/luggage/luggage.make
+include luggage/luggage.make
 PACKAGE_VERSION:=$(shell sed -n -e '/^__version__/p' sal_python_pkg/sal/version.py | cut -d "\"" -f 2)
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
