@@ -93,7 +93,13 @@ def serializer(obj):
     if isinstance(obj, datetime.datetime):
         # Make sure everything has been set to offset 0 / UTC time.
         obj = obj.astimezone(datetime.timezone.utc).isoformat()
-    return obj
+        return obj
+    elif isinstance(obj, bytes):
+        return obj.decode("utf-8")
+    else:
+        # if nothing else notify on what went wrong
+        raise TypeError(f"Unserializable object: {obj}. Type: {type(obj)}")
+
 
 
 def submission_encode(data: bytes) -> bytes:
