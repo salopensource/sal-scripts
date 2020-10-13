@@ -6,12 +6,13 @@ import bz2
 import datetime
 import hashlib
 import json
+import logging
 import os
 import platform
 import pathlib
 import plistlib
 
-
+logger = logging.getLogger(__name__)
 RESULTS_PATH = {"Darwin": "/usr/local/sal/checkin_results.json"}.get(platform.system())
 
 
@@ -97,8 +98,10 @@ def serializer(obj):
     elif isinstance(obj, bytes):
         return obj.decode("utf-8")
     else:
-        # if nothing else notify on what went wrong
-        raise TypeError(f"Unserializable object: {obj}. Type: {type(obj)}")
+        # instead of raising TypeError drop the obj, log it, and move on.
+        logger.debug(f"Cant serialize {obj}. Converting to an empty string.")
+        obj = ""
+        return obj
 
 
 
