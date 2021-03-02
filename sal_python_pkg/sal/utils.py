@@ -25,10 +25,8 @@ def get_hash(file_path):
 
 def add_plugin_results(plugin, data, historical=False):
     """Add data to the shared plugin results plist.
-
     This function creates the shared results plist file if it does not
     already exist; otherwise, it adds the entry by appending.
-
     Args:
         plugin (str): Name of the plugin returning data.
         data (dict): Dictionary of results.
@@ -73,9 +71,7 @@ def save_results(data):
 
 def set_checkin_results(module_name, data):
     """Set data by name to the shared results JSON file.
-
     Existing data is overwritten.
-
     Args:
         module_name (str): Name of the management source returning data.
         data (dict): Dictionary of results.
