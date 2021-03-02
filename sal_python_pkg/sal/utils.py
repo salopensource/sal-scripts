@@ -92,7 +92,9 @@ def serializer(obj):
     # for strings, so we don't have to handle them here.
     if isinstance(obj, datetime.datetime):
         # Make sure everything has been set to offset 0 / UTC time.
-        obj = obj.astimezone(datetime.timezone.utc).isoformat()
+        return obj.astimezone(datetime.timezone.utc).isoformat()
+    elif isinstance(obj, bytes):
+        return "BINARY DATA"
     return obj
 
 
