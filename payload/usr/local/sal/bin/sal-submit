@@ -20,6 +20,7 @@ import requests.exceptions
 
 import sal
 
+from Foundation import NSDate
 
 CHECKIN_MODULES_DIR = "/usr/local/sal/checkin_modules"
 
@@ -77,6 +78,7 @@ def main():
     response = send_checkin(report)
 
     if response and response.status_code == 200:
+        sal.set_sal_pref("LastCheckDate", NSDate.new())
         sal.clean_results()
 
     # Speed up manual runs by skipping these potentially slow-running,
@@ -389,3 +391,4 @@ def _payload_cleanse(payload):
 
 if __name__ == "__main__":
     main()
+
