@@ -6,13 +6,12 @@ import bz2
 import datetime
 import hashlib
 import json
-import logging
 import os
 import platform
 import pathlib
 import plistlib
 
-logger = logging.getLogger(__name__)
+
 RESULTS_PATH = {"Darwin": "/usr/local/sal/checkin_results.json"}.get(platform.system())
 
 
@@ -26,10 +25,8 @@ def get_hash(file_path):
 
 def add_plugin_results(plugin, data, historical=False):
     """Add data to the shared plugin results plist.
-
     This function creates the shared results plist file if it does not
     already exist; otherwise, it adds the entry by appending.
-
     Args:
         plugin (str): Name of the plugin returning data.
         data (dict): Dictionary of results.
@@ -74,9 +71,7 @@ def save_results(data):
 
 def set_checkin_results(module_name, data):
     """Set data by name to the shared results JSON file.
-
     Existing data is overwritten.
-
     Args:
         module_name (str): Name of the management source returning data.
         data (dict): Dictionary of results.
@@ -93,13 +88,8 @@ def serializer(obj):
     # for strings, so we don't have to handle them here.
     if isinstance(obj, datetime.datetime):
         # Make sure everything has been set to offset 0 / UTC time.
-        return obj.astimezone(datetime.timezone.utc).isoformat()
-    elif isinstance(obj, bytes):
-        return obj.decode("utf-8")
-    else:
-        # instead of raising TypeError drop the obj, log it, and move on.
-        logger.debug(f"Cant serialize {obj}. Converting to an empty string.")
-        return ""
+        obj = obj.astimezone(datetime.timezone.utc).isoformat()
+    return obj
 
 
 def submission_encode(data: bytes) -> bytes:
