@@ -31,10 +31,11 @@ endif
 
 clean-build:
 	@sudo rm -rf report_broken_client/build
+	rm -rf entitlements.plist
 
 pack-report-broken-client: pack-sal-scripts clean-build
 	xcodebuild -project report_broken_client/report_broken_client.xcodeproj -configuration Release
-	/usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-unsigned-executable-memory bool true" ${TOOLSDIR}/entitlements.plist
+	/usr/libexec/PlistBuddy -c "Add :com.apple.security.cs.allow-unsigned-executable-memory bool true" entitlements.plist
 	codesign --force --deep --verbose -s "${DEV_APP_CERT}" --entitlements entitlements.plist report_broken_client/build/Release/report_broken_client
 	@sudo ${CP} report_broken_client/build/Release/report_broken_client ${WORK_D}/usr/local/munki/report_broken_client
 
