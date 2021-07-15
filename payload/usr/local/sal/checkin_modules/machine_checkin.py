@@ -111,7 +111,10 @@ def get_friendly_model(serial, udid):
     for cache_file in MODEL_PATH.iterdir():
         # clean up any other files in dir
         if cache_file != UDID_CACHE_PATH:
-            cache_file.unlink()
+            try:
+                cache_file.unlink()
+            except:
+                pass
 
     if not UDID_CACHE_PATH.exists():
         model = cleanup_model(query_apple_support(serial))
