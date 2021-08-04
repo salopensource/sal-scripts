@@ -18,7 +18,7 @@ from SystemConfiguration import (
 import sal
 
 
-MODEL_PATH = pathlib.Path("/usr/local/sal/mac_model.txt")
+MODEL_PATH = pathlib.Path("/usr/local/sal/model_cache")
 MEMORY_EXPONENTS = {"KB": 0, "MB": 1, "GB": 2, "TB": 3}
 __version__ = "1.1.0"
 
@@ -50,7 +50,9 @@ def process_system_profile():
     machine_results["machine_model"] = system_profile["SPHardwareDataType"][0][
         "machine_model"
     ]
-    friendly_model = get_friendly_model(machine_results["serial"])
+
+    udid = system_profile["SPHardwareDataType"][0]['provisioning_UDID']
+    friendly_model = get_friendly_model(serial=machine_results["serial"], udid=udid)
     if friendly_model:
         machine_results["machine_model_friendly"] = friendly_model
     machine_results["cpu_type"] = system_profile["SPHardwareDataType"][0].get(
@@ -98,17 +100,32 @@ def get_machine_name(net_config, nametype):
     ).strip()
 
 
-def get_friendly_model(serial):
+def get_friendly_model(serial, udid):
     """Return friendly model name"""
-    if not MODEL_PATH.exists():
+
+    # set up cache file for this udid...create dir,
+    MODEL_PATH.mkdir(mode=0o755, parents=True, exist_ok=True)
+
+    # name cache for this udid
+    UDID_CACHE_PATH = pathlib.Path(MODEL_PATH, '%s.txt' % (udid))
+    for cache_file in MODEL_PATH.iterdir():
+        # clean up any other files in dir
+        if cache_file != UDID_CACHE_PATH:
+            try:
+                cache_file.unlink()
+            except:
+                pass
+
+    if not UDID_CACHE_PATH.exists():
         model = cleanup_model(query_apple_support(serial))
         if model:
-            MODEL_PATH.write_text(model)
+            UDID_CACHE_PATH.write_text(model)
     else:
         try:
-            model = MODEL_PATH.read_text().strip()
+            model = UDID_CACHE_PATH.read_text().strip()
         except:
             model = None
+
     return model
 
 
