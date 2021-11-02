@@ -53,9 +53,14 @@ def process_system_profile():
     friendly_model = get_friendly_model(machine_results["serial"])
     if friendly_model:
         machine_results["machine_model_friendly"] = friendly_model
-    machine_results["cpu_type"] = system_profile["SPHardwareDataType"][0].get(
-        "cpu_type", ""
-    )
+    if system_profile["SPHardwareDataType"][0].get("chip_type", None):
+        machine_results["cpu_type"] = system_profile["SPHardwareDataType"][0].get(
+            "chip_type", ""
+        )
+    else:
+        machine_results["cpu_type"] = system_profile["SPHardwareDataType"][0].get(
+            "cpu_type", ""
+        )
     machine_results["cpu_speed"] = system_profile["SPHardwareDataType"][0][
         "current_processor_speed"
     ]
@@ -100,6 +105,19 @@ def get_machine_name(net_config, nametype):
 
 def get_friendly_model(serial):
     """Return friendly model name"""
+    cmd = ["/usr/sbin/ioreg", "-arc", "IOPlatformDevice", "-k", "product-name"]
+    try:
+        out = subprocess.check_output(cmd)
+    except:
+        pass
+    if out:
+        try:
+            data = plistlib.loads(out)
+            if len(data) != 0:
+                return data[0].get("product-name").decode("utf-8")
+        except:
+            pass
+
     if not MODEL_PATH.exists():
         model = cleanup_model(query_apple_support(serial))
         if model:
