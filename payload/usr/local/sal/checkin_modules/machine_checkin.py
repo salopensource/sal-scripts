@@ -51,7 +51,7 @@ def process_system_profile():
         "machine_model"
     ]
 
-    udid = system_profile["SPHardwareDataType"][0]['provisioning_UDID']
+    udid = system_profile["SPHardwareDataType"][0]["provisioning_UDID"]
     friendly_model = get_friendly_model(serial=machine_results["serial"], udid=udid)
     if friendly_model:
         machine_results["machine_model_friendly"] = friendly_model
@@ -124,7 +124,7 @@ def get_friendly_model(serial, udid):
     MODEL_PATH.mkdir(mode=0o755, parents=True, exist_ok=True)
 
     # name cache for this udid
-    UDID_CACHE_PATH = pathlib.Path(MODEL_PATH, '%s.txt' % (udid))
+    UDID_CACHE_PATH = pathlib.Path(MODEL_PATH, "%s.txt" % (udid))
     for cache_file in MODEL_PATH.iterdir():
         # clean up any other files in dir
         if cache_file != UDID_CACHE_PATH:
