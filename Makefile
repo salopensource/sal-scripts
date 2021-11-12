@@ -1,6 +1,9 @@
 USE_PKGBUILD=1
 include luggage/luggage.make
+include config.mk
 PACKAGE_VERSION:=$(shell sed -n -e '/^__version__/p' sal_python_pkg/sal/version.py | cut -d "\"" -f 2)
+PB_EXTRA_ARGS+= --sign "${DEV_INSTALL_CERT}"
+.PHONY: remove-xattrs sign clean-build
 TITLE=sal_scripts
 PACKAGE_NAME=sal_scripts
 REVERSE_DOMAIN=com.github.salopensource
@@ -11,9 +14,12 @@ PAYLOAD=\
 	pack-Library-LaunchDaemons-com.salopensource.sal.runner.plist \
 	pack-Library-LaunchDaemons-com.salopensource.sal.random.runner.plist \
 	pack-script-postinstall \
-	pack-python
+	pack-python \
+	remove-xattrs \
+	sign
 
 clean-build:
+	killall Dropbox || true
 	@sudo rm -rf report_broken_client/build
 
 pack-report-broken-client: pack-sal-scripts clean-build
@@ -47,3 +53,18 @@ build-python:
 	@git clone https://github.com/gregneagle/relocatable-python.git "${PYTHONTOOLDIR}"
 	@./build_python_framework.sh
 	@find ./Python.framework -name '*.pyc' -delete
+
+sign: remove-xattrs
+	@sudo ./sign_python_framework.py -v -S "${DEV_APP_CERT}"
+
+remove-xattrs:
+	@sudo xattr -rd com.dropbox.attributes ${WORK_D}
+	@sudo xattr -rd com.dropbox.internal ${WORK_D}
+	@sudo xattr -rd com.apple.ResourceFork ${WORK_D}
+	@sudo xattr -rd com.apple.FinderInfo ${WORK_D}
+	@sudo xattr -rd com.apple.metadata:_kMDItemUserTags ${WORK_D}
+	@sudo xattr -rd com.apple.metadata:kMDItemFinderComment ${WORK_D}
+	@sudo xattr -rd com.apple.metadata:kMDItemOMUserTagTime ${WORK_D}
+	@sudo xattr -rd com.apple.metadata:kMDItemOMUserTags ${WORK_D}
+	@sudo xattr -rd com.apple.metadata:kMDItemStarRating ${WORK_D}
+	@sudo xattr -rd com.dropbox.ignored ${WORK_D}
