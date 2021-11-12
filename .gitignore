@@ -71,3 +71,5 @@ vendor/
 report_broken_client/build
 
 .vscode/
+config.mk
+entitlements.plist
