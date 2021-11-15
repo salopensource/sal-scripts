@@ -42,16 +42,20 @@ def process_system_profile():
         # We can't continue if system_profiler dies.
         return machine_results
 
-    machine_results["serial"] = system_profile["SPHardwareDataType"][0]["serial_number"]
-    os_version = system_profile["SPSoftwareDataType"][0]["os_version"].split()[1]
+    machine_results["serial"] = system_profile["SPHardwareDataType"][0].get(
+        "serial_number"
+    )
+    os_version = system_profile["SPSoftwareDataType"][0].get("os_version").split()[1]
     if os_version == "X":
-        os_version = system_profile["SPSoftwareDataType"][0]["os_version"].split()[2]
+        os_version = (
+            system_profile["SPSoftwareDataType"][0].get("os_version").split()[2]
+        )
     machine_results["operating_system"] = os_version
-    machine_results["machine_model"] = system_profile["SPHardwareDataType"][0][
+    machine_results["machine_model"] = system_profile["SPHardwareDataType"].get(
         "machine_model"
-    ]
+    )
 
-    udid = system_profile["SPHardwareDataType"][0]["provisioning_UDID"]
+    udid = system_profile["SPHardwareDataType"][0].get("provisioning_UDID")
     friendly_model = get_friendly_model(serial=machine_results["serial"], udid=udid)
     if friendly_model:
         machine_results["machine_model_friendly"] = friendly_model
@@ -63,12 +67,12 @@ def process_system_profile():
         machine_results["cpu_type"] = system_profile["SPHardwareDataType"][0].get(
             "cpu_type", ""
         )
-    machine_results["cpu_speed"] = system_profile["SPHardwareDataType"][0][
-        "current_processor_speed"
-    ]
-    machine_results["memory"] = system_profile["SPHardwareDataType"][0][
-        "physical_memory"
-    ]
+    machine_results["cpu_speed"] = system_profile["SPHardwareDataType"][0].get(
+        "current_processor_speed", ""
+    )
+    machine_results["memory"] = system_profile["SPHardwareDataType"][0].get(
+        "physical_memory", ""
+    )
     machine_results["memory_kb"] = process_memory(machine_results["memory"])
 
     for device in system_profile["SPStorageDataType"]:
