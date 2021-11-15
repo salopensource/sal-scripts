@@ -51,7 +51,7 @@ def process_system_profile():
             system_profile["SPSoftwareDataType"][0].get("os_version").split()[2]
         )
     machine_results["operating_system"] = os_version
-    machine_results["machine_model"] = system_profile["SPHardwareDataType"].get(
+    machine_results["machine_model"] = system_profile["SPHardwareDataType"][0].get(
         "machine_model"
     )
 
@@ -120,7 +120,7 @@ def get_friendly_model(serial, udid):
         try:
             data = plistlib.loads(out)
             if len(data) != 0:
-                return data[0].get("product-name").decode("utf-8")
+                return data[0].get("product-name").encode("ascii", "ignore").strip()
         except:
             pass
 
