@@ -37,12 +37,6 @@ import atexit
 
 PYTHON_VERSION = "3.9.7"
 SHORT_PYTHON_VERSION = "3.9"
-TOOLS_DIR = os.path.dirname(os.path.realpath(__file__))
-
-
-PY_FWK = os.path.join(TOOLS_DIR, "Python.Framework")
-PY_CUR = os.path.join(PY_FWK, "Versions/Current")
-
 
 PRODUCTSIGN = "/usr/bin/productsign"
 CODESIGN = "/usr/bin/codesign"
@@ -136,10 +130,19 @@ def main():
         "-S",
         "--sign-binaries",
         action="store",
+        dest="sign_binaries",
         default=None,
         help="A Developer ID Application certificate from keychain. "
         "Provide the certificate's Common Name. e.g.: "
         "'Developer ID Application  Munki (U8PN57A5N2)'",
+    ),
+    p.add_argument(
+        "-L",
+        "--location",
+        action="store",
+        dest="location",
+        default=None,
+        help="Path to python framework to sign.",
     ),
     p.add_argument("-v", "--verbose", action="store_true", help="Be more verbose"),
 
@@ -159,7 +162,11 @@ def main():
     global verbose
     verbose = args.verbose
 
-    root_dir = os.path.join(TOOLS_DIR, "Python.framework")
+    if not args.location:
+        print("Path to Python.framework must be provided.")
+        sys.exit(1)
+    root_dir = args.location
+    PY_CUR = os.path.join(root_dir, "Versions/Current")
     # Set root:admin throughout payload
     for root, dirs, files in os.walk(root_dir):
         for dir_ in dirs:
@@ -227,7 +234,7 @@ def main():
             entitlements=ent_file,
         )
     # Finally sign python framework
-    py_fwkpath = os.path.join(root_dir, PY_FWK)
+    py_fwkpath = os.path.join(root_dir, root_dir)
     if verbose:
         print(f"Signing {py_fwkpath}...")
     sign_binary(args.sign_binaries, py_fwkpath, deep=True, force=True)

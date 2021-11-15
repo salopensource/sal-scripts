@@ -55,7 +55,7 @@ build-python:
 	@find ./Python.framework -name '*.pyc' -delete
 
 sign: remove-xattrs
-	@sudo ./sign_python_framework.py -v -S "${DEV_APP_CERT}"
+	@sudo ./sign_python_framework.py -v -S "${DEV_APP_CERT}" -L ${WORK_D}/usr/local/sal/Python.framework
 
 remove-xattrs:
 	@sudo xattr -rd com.dropbox.attributes ${WORK_D}
