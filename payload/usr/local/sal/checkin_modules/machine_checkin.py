@@ -120,7 +120,13 @@ def get_friendly_model(serial, udid):
         try:
             data = plistlib.loads(out)
             if len(data) != 0:
-                return data[0].get("product-name").encode("ascii", "ignore").strip()
+                return (
+                    data[0]
+                    .get("product-name")
+                    .encode("ascii", "ignore")
+                    .decode()
+                    .strip()
+                )
         except:
             pass
 
