@@ -56,6 +56,9 @@ def process_system_profile():
     )
 
     udid = system_profile["SPHardwareDataType"][0].get("provisioning_UDID")
+    if udid is None:
+        # plaform_UUID was the unique id until macOS 10.15
+        udid = system_profile["SPHardwareDataType"][0].get("platform_UUID")
     friendly_model = get_friendly_model(serial=machine_results["serial"], udid=udid)
     if friendly_model:
         machine_results["machine_model_friendly"] = friendly_model
