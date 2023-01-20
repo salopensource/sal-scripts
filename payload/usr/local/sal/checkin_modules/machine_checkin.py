@@ -127,7 +127,9 @@ def get_friendly_model(serial, udid):
                     data[0]
                     .get("product-name")
                     .decode("ascii", "ignore")
-                    .strip().strip('\x00').strip()
+                    .strip()
+                    .strip("\x00")
+                    .strip()
                 )
         except:
             pass

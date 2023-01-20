@@ -2,6 +2,7 @@
 
 
 import datetime
+import os
 import pathlib
 import platform
 import plistlib
@@ -12,7 +13,7 @@ from distutils.version import StrictVersion
 import sal
 
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 
 def main():
@@ -105,6 +106,11 @@ def _get_log_time(line):
 
 
 def get_pending():
+    if os.path.exists("/Library/Preferences/com.apple.SoftwareUpdate.plist"):
+        pending_items = get_pending_updates_from_preferences()
+        if pending_items != None:
+            return pending_items
+
     pending_items = {}
     cmd = ["softwareupdate", "-l", "--no-scan"]
     try:
@@ -174,10 +180,43 @@ def get_pending():
                 if "recommended" in m.group("recommended")
                 else "FALSE",
                 "action": _bracket_cleanup(m, "action"),
+                "type": "Apple SUS Install",
             },
         }
         for m in rexp.finditer(output)
     }
+
+
+def get_pending_updates_from_preferences():
+    pending = {}
+    try:
+        pref = plistlib.loads(
+            pathlib.Path(
+                "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+            ).read_bytes()
+        )
+    except (IOError, plistlib.InvalidFileException):
+        return None
+
+    recommended_updates = pref.get("RecommendedUpdates", None)
+    if not recommended_updates:
+        return pending
+
+    # Convert local time to UTC time represented as a ISO 8601 str.
+    now = datetime.datetime.now().astimezone(datetime.timezone.utc).isoformat()
+    for update in recommended_updates:
+        name = update.get("Display Name")
+        version = update.get("Display Version")
+        item = {}
+        item["date_managed"] = now
+        item["status"] = "PENDING"
+        item["data"] = {
+            "version": version,
+            "recommended": "TRUE",
+            "type": "Apple SUS Install",
+        }
+        pending[name] = item
+    return pending
 
 
 def _bracket_cleanup(match, key):

@@ -1,5 +1,5 @@
 sal_python_pkg/
-pyobjc==7.2
+pyobjc==8.5
 #urllib3==1.26.5
 requests==2.26.0
 MacSesh==0.3.0
