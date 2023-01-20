@@ -340,17 +340,22 @@ ${PACKAGE_PLIST}: ${PLIST_PATH}
 
 define PYTHON_PLISTER
 import plistlib
-component = plistlib.readPlist('${SCRATCH_D}/luggage.pkg.component.plist')
+file_name = '${SCRATCH_D}/luggage.pkg.component.plist'
+with open(file_name, 'rb') as infile:
+    component = plistlib.load(infile)
+
 for payload in component:
     if payload.get('BundleIsRelocatable'):
         payload['BundleIsRelocatable'] = False
-plistlib.writePlist(component, '${SCRATCH_D}/luggage.pkg.component.plist')
+
+with open(file_name, 'wb') as outfile:
+    plistlib.dump(component, outfile)
 endef
 
 export PYTHON_PLISTER
 
 kill_relocate:
-	@-sudo /usr/bin/python -c "$${PYTHON_PLISTER}"
+	@-sudo python3 -c "$${PYTHON_PLISTER}"
 
 # Target directory rules
 
