@@ -180,17 +180,20 @@ def get_pending():
                 if "recommended" in m.group("recommended")
                 else "FALSE",
                 "action": _bracket_cleanup(m, "action"),
-                "type": "Apple SUS Install"
+                "type": "Apple SUS Install",
             },
         }
         for m in rexp.finditer(output)
     }
 
+
 def get_pending_updates_from_preferences():
     pending = {}
     try:
         pref = plistlib.loads(
-            pathlib.Path("/Library/Preferences/com.apple.SoftwareUpdate.plist").read_bytes()
+            pathlib.Path(
+                "/Library/Preferences/com.apple.SoftwareUpdate.plist"
+            ).read_bytes()
         )
     except (IOError, plistlib.InvalidFileException):
         return None
@@ -210,10 +213,11 @@ def get_pending_updates_from_preferences():
         item["data"] = {
             "version": version,
             "recommended": "TRUE",
-            "type": "Apple SUS Install"
+            "type": "Apple SUS Install",
         }
         pending[name] = item
     return pending
+
 
 def _bracket_cleanup(match, key):
     """Strip out [ and ] and uppercase SUS output"""
