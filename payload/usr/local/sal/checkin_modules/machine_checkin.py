@@ -104,7 +104,7 @@ def process_system_profile():
 
 def rsr_supported(os_version):
     major_os = os_version.Split(".")[0]
-    if int(major_os) <= 13:
+    if int(major_os) >= 13:
         return True
     return False
 
