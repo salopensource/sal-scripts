@@ -60,7 +60,7 @@ def process_system_profile():
         rsr_version = get_rsr_version()
         machine_results["rsr_version"] = rsr_version
         if rsr_version != "":
-             machine_results["operating_system"] = os_version + " " + rsr_version
+            machine_results["operating_system"] = os_version + " " + rsr_version
 
     udid = system_profile["SPHardwareDataType"][0].get("provisioning_UDID")
     if udid is None:
@@ -113,8 +113,8 @@ def rsr_supported(os_version):
 def get_rsr_version():
     try:
         return subprocess.check_output(
-        ["/usr/bin/sw_vers", "--ProductVersionExtra"], text=True
-    ).strip()
+            ["/usr/bin/sw_vers", "--ProductVersionExtra"], text=True
+        ).strip()
     except:
         return ""
 
