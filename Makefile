@@ -33,7 +33,9 @@ pack-sal-scripts: l_usr_local
 	@sudo chmod -R 755 ${WORK_D}
 
 install: pkg
-	@sudo installer -pkg sal_scripts.pkg -target /
+	@sudo ${RM} -f /tmp/sal_scripts.pkg
+	@sudo ${CP} sal_scripts.pkg /tmp/sal_scripts.pkg
+	@sudo installer -pkg /tmp/sal_scripts.pkg -target /
 
 pack-python: clean-python build-python
 	@sudo ${CP} -R Python.framework ${WORK_D}/usr/local/sal/

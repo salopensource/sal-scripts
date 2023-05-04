@@ -12,7 +12,6 @@ _client_instance = None
 
 
 class SalClient:
-
     session_class = requests.Session
     _base_url = ""
     _auth = None
@@ -94,7 +93,6 @@ class SalClient:
 
 
 class MacKeychainClient(SalClient):
-
     session_class = MacSeshSession
 
 
