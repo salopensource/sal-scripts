@@ -51,15 +51,16 @@ def process_system_profile():
             system_profile["SPSoftwareDataType"][0].get("os_version").split()[2]
         )
 
-    if rsr_supported(os_version):
-        rsr_version = rsr_version()
-        os_version = os_version + " " + rsr_version
-        machine_results["rsr_version"] = rsr_version
-
     machine_results["operating_system"] = os_version
     machine_results["machine_model"] = system_profile["SPHardwareDataType"][0].get(
         "machine_model"
     )
+
+    if rsr_supported(os_version):
+        rsr_version = get_rsr_version()
+        machine_results["rsr_version"] = rsr_version
+        if rsr_version != "":
+             machine_results["operating_system"] = os_version + " " + rsr_version
 
     udid = system_profile["SPHardwareDataType"][0].get("provisioning_UDID")
     if udid is None:
@@ -103,16 +104,19 @@ def process_system_profile():
 
 
 def rsr_supported(os_version):
-    major_os = os_version.Split(".")[0]
+    major_os = os_version.split(".")[0]
     if int(major_os) >= 13:
         return True
     return False
 
 
-def rsr_version():
-    return subprocess.check_output(
+def get_rsr_version():
+    try:
+        return subprocess.check_output(
         ["/usr/bin/sw_vers", "--ProductVersionExtra"], text=True
     ).strip()
+    except:
+        return ""
 
 
 def get_hostname():
