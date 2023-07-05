@@ -33,7 +33,7 @@ def main():
         "checkin_module_version": __version__,
         "RunType": munki_report["RunType"],
         "StartTime": munki_report["StartTime"],
-        "EndTime": munki_report["EndTime"],
+        "EndTime": munki_report.get("EndTime", ""),
     }
     if munki_report.get("Conditions"):
         for condition, value in munki_report["Conditions"].items():
