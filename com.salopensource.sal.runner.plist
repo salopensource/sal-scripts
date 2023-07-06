@@ -8,6 +8,10 @@
 	<string>/usr/local/sal/bin/sal-submit</string>
 	<key>RunAtLoad</key>
 	<true/>
+	<key>StandardErrorPath</key>
+	<string>/var/log/sal_submit.log</string>
+	<key>StandardOutPath</key>
+	<string>/var/log/sal_submit.log</string>
 	<key>WatchPaths</key>
 	<array>
 		<string>/Users/Shared/.com.salopensource.sal.run</string>
