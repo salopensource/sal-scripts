@@ -31,11 +31,19 @@ def check_for_errors(report):
          "\t(-1009, 'The Internet connection appears to be offline.')"],
     ]
 
-    if munkicommon.pref('InstallAppleSoftwareUpdates'):
-        if warnings in target_warnings and errors == target_errors:
+    if munkicommon.pref("InstallAppleSoftwareUpdates"):
+        if warnings in target_warnings and any(
+            error.startswith(target_error)
+            for target_error in target_errors
+            for error in errors
+        ):
             return True
     else:
-        if errors == target_errors:
+        if any(
+            error.startswith(target_error)
+            for target_error in target_errors
+            for error in errors
+        ):
             return True
 
     return False
