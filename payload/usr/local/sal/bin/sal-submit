@@ -382,9 +382,8 @@ def send_profiles(serial):
 
 def _payload_cleanse(payload):
     stored = ("PayloadIdentifier", "PayloadUUID", "PayloadType")
-    return {k: payload[k] for k in stored}
+    return {k: payload.get(k, "None") for k in stored}
 
 
 if __name__ == "__main__":
     main()
-
