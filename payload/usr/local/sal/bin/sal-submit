@@ -28,7 +28,7 @@ CHECKIN_MODULES_DIR = "/usr/local/sal/checkin_modules"
 def main():
     args = get_args()
     log_level = get_log_level(args)
-    logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%S%z")
     logging.info("%s Version: %s", os.path.basename(__file__), sal.__version__)
     logging.info("Sal client prefs:")
     prefs = sal.prefs_report()
