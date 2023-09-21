@@ -67,11 +67,14 @@ def get_sus_facts():
         install_log = handle.readlines()
 
     for line in reversed(install_log):
-        # TODO: Stop if we go before the subprocess call datetime-wise
         if "Catalog: http" in line and "catalog" not in result:
             result["catalog"] = line.split()[-1]
         elif "SUScan: Elapsed scan time = " in line and "last_check" not in result:
-            result["last_check"] = _get_log_time(line).isoformat()
+            try:
+                result["last_check"] = _get_log_time(line).isoformat()
+            except AttributeError:
+                # _get_log_time returned None
+                pass
 
         if (log_time := _get_log_time(line)) and log_time < history_limit:
             # Let's not look earlier than when we started
