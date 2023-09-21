@@ -28,7 +28,9 @@ def main():
         for count, payload in enumerate(payloads, start=1):
             data[f"payload {count}"] = payload
 
-        data["payload_types"] = ", ".join(p.get("PayloadType", "None") for p in payloads)
+        data["payload_types"] = ", ".join(
+            p.get("PayloadType", "None") for p in payloads
+        )
         data["profile_description"] = profile.get("ProfileDescription", "None")
         data["identifier"] = profile["ProfileIdentifier"]
         data["organization"] = profile.get("ProfileOrganization" or "None")
