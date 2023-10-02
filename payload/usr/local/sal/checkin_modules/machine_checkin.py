@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 from xml.etree import ElementTree
+from datetime import datetime, timedelta
 
 import macsesh
 from SystemConfiguration import (
@@ -159,6 +160,7 @@ def get_friendly_model(serial, udid):
 
     # set up cache file for this udid...create dir,
     MODEL_PATH.mkdir(mode=0o755, parents=True, exist_ok=True)
+    cache_ttl = 30 # 30 days 
 
     # name cache for this udid
     UDID_CACHE_PATH = pathlib.Path(MODEL_PATH, "%s.txt" % (udid))
@@ -169,7 +171,13 @@ def get_friendly_model(serial, udid):
                 cache_file.unlink()
             except:
                 pass
+    
+    # delete cache file if it's older than cache_ttl
+    if UDID_CACHE_PATH.exists():
+        if not check_cache_ttl(cache_ttl, UDID_CACHE_PATH.stat().st_mtime):
+            UDID_CACHE_PATH.unlink()
 
+    # write to cache if it doesn't exist, or read from a valid cache
     if not UDID_CACHE_PATH.exists():
         model = cleanup_model(query_apple_support(serial))
         if model:
@@ -221,6 +229,22 @@ def cleanup_model(model):
         for pattern, replacement in cleanup_res:
             model = pattern.sub(replacement, model)
     return model
+
+
+def check_cache_ttl(cache_ttl, last_modified_timestamp):
+    """Check if last_modified_timestamp is within the given ttl.
+    Returns False if timestamp is older than ttl
+    
+    cache_ttl: (int) number of days 
+    last_modified_timestamp: (float) last modified timestamp for 
+    the cache file"""
+    now = datetime.now()
+    ttl_cutoff = now - timedelta(days=cache_ttl)
+    
+    if last_modified_timestamp <= ttl_cutoff.timestamp():
+        return False
+
+    return True
 
 
 def process_memory(amount):
