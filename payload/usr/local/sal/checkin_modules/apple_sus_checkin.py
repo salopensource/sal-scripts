@@ -179,9 +179,9 @@ def get_pending():
             "status": "PENDING",
             "data": {
                 "version": m.group("version"),
-                "recommended": "TRUE"
-                if "recommended" in m.group("recommended")
-                else "FALSE",
+                "recommended": (
+                    "TRUE" if "recommended" in m.group("recommended") else "FALSE"
+                ),
                 "action": _bracket_cleanup(m, "action"),
                 "type": "Apple SUS Install",
             },
