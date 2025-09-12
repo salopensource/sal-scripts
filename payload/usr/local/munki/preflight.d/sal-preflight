@@ -14,12 +14,9 @@ import urllib
 
 import requests.exceptions
 import sal
-sys.path.append('/usr/local/munki')
-from munkilib import munkicommon
-
 
 EXTERNAL_SCRIPTS_DIR = '/usr/local/sal/external_scripts'
-
+verbose = 0
 
 def main():
     set_verbosity()
@@ -61,19 +58,23 @@ def get_checksums():
     try:
         response = sal_client.post('preflight-v2/', data={'os_family': 'Darwin'})
     except requests.exceptions.RequestException as error:
-        munkicommon.display_debug2(str(error_msg))
+        if verbose:
+            print(str(error_msg), file=sys.stderr)
         return
     if response.status_code != requests.status_codes.codes.okay:
-        munkicommon.display_debug2(f'Request failed with HTTP {response.status_code}')
+        if verbose:
+            print(f'Request failed with HTTP {response.status_code}', file=sys.stderr)
         return
     if response and "<h1>Page not found</h1>" in response.text:
-        munkicommon.display_debug2(response.text)
+        if verbose:
+            print(response.text, file=sys.stderr)
         return
 
     try:
         return response.json()
     except ValueError:
-        munkicommon.display_debug2("Didn't receive valid JSON.")
+        if verbose:
+            print("Didn't receive valid JSON.", file=sys.stderr)
         return None
 
 
@@ -91,7 +92,8 @@ def download_scripts(server_scripts):
                 download_required = True
 
         if download_required == True:
-            munkicommon.display_debug2(f'downloading {server_script["filename"]}')
+            if verbose:
+                print(f'downloading {server_script["filename"]}')
             download_and_write_script(server_script)
 
 
@@ -101,13 +103,15 @@ def download_and_write_script(server_script):
         response = sal.get_sal_client().get(
             f"preflight-v2/get-script/{server_script['plugin']}/{server_script['filename']}/")
     except requests.exceptions.RequestException as error:
-        munkicommon.display_debug2('Error received downloading script:')
-        munkicommon.display_debug2(str(error))
+        if verbose:
+            print('Error received downloading script:', file=sys.stderr)
+            print(str(error), file=sys.stderr)
         return
 
     if response.status_code != requests.status_codes.codes.okay:
-        munkicommon.display_debug2('Error received downloading script:')
-        munkicommon.display_debug2(response.text)
+        if verbose:
+            print('Error received downloading script:', file=sys.stderr)
+            print(response.text, file=sys.stderr)
 
     script = open(
         os.path.join(EXTERNAL_SCRIPTS_DIR, server_script['plugin'], server_script['filename']),
@@ -115,7 +119,8 @@ def download_and_write_script(server_script):
     try:
         data = response.json()
     except ValueError:
-        munkicommon.display_debug2('Did not receive valid JSON when requesting script content.')
+        if verbose:
+            print('Did not receive valid JSON when requesting script content.', file=sys.stderr)
         return
 
     script.write(data[0]['content'])
@@ -163,7 +168,7 @@ def remove_empty_folders(path):
 def set_verbosity():
     """Set the verbosity based on options or munki verbosity level."""
     args = get_args()
-    munkicommon.verbose = (
+    verbose = (
         5 if args.debug else int(os.environ.get('MUNKI_VERBOSITY_LEVEL', 0)))
 
 
