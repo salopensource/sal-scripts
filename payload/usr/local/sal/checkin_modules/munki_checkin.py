@@ -8,11 +8,17 @@ import sys
 
 import sal
 
-sys.path.insert(0, "/usr/local/munki")
-from munkilib import munkicommon
-
+from Foundation import CFPreferencesCopyAppValue, NSDate
 
 __version__ = "1.2.0"
+
+
+def munkiPref(pref_name):
+    pref_value = CFPreferencesCopyAppValue(pref_name, "ManagedInstalls")
+    if isinstance(pref_value, NSDate):
+        # convert NSDate/CFDates to strings
+        pref_value = str(pref_value)
+    return pref_value
 
 
 def main():
@@ -49,7 +55,7 @@ def main():
 
     munki_submission["messages"] = []
     for key in ("Errors", "Warnings"):
-        for msg in munki_report[key]:
+        for msg in munki_report.get(key, []):
             # We need to drop the final 'S' to match Sal's message types.
             munki_submission["messages"].append(
                 {"message_type": key.upper()[:-1], "text": msg}
@@ -140,7 +146,7 @@ def get_managed_install_report():
         dict, or an empty dict.
     """
     # Checks munki preferences to see where the install directory is set to.
-    managed_install_dir = munkicommon.pref("ManagedInstallDir")
+    managed_install_dir = munkiPref("ManagedInstallDir")
 
     # set the paths based on munki's configuration.
     managed_install_report = (
@@ -166,7 +172,7 @@ def get_optional_manifest():
         dict, or an empty dict.
     """
     # Checks munki preferences to see where the install directory is set to.
-    managed_install_dir = munkicommon.pref("ManagedInstallDir")
+    managed_install_dir = munkiPref("ManagedInstallDir")
 
     # set the paths based on munki's configuration.
     optional_manifest_path = (

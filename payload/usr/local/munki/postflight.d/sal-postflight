@@ -7,16 +7,25 @@ import sys
 import socket
 import urllib.request, urllib.error
 
-sys.path[:0] = ['/usr/local/munki', '/usr/local/sal/checkin_modules']
+sys.path[:0] = ['/usr/local/sal/checkin_modules']
 import munki_checkin
 import sal
-from munkilib import munkicommon
+
+from Foundation import CFPreferencesCopyAppValue, NSDate
 
 
 TOUCH_FILE_PATH = '/Users/Shared/.com.salopensource.sal.run'
 LAUNCHD = 'com.salopensource.sal.runner'
 LAUNCHD_PATH = f'/Library/LaunchDaemons/{LAUNCHD}.plist'
 SUBMIT_SCRIPT = '/usr/local/sal/bin/sal-submit'
+
+
+def munkiPref(pref_name):
+    pref_value = CFPreferencesCopyAppValue(pref_name, "ManagedInstalls")
+    if isinstance(pref_value, NSDate):
+        # convert NSDate/CFDates to strings
+        pref_value = str(pref_value)
+    return pref_value
 
 
 def check_for_errors(report):
@@ -31,7 +40,7 @@ def check_for_errors(report):
          "\t(-1009, 'The Internet connection appears to be offline.')"],
     ]
 
-    if munkicommon.pref("InstallAppleSoftwareUpdates"):
+    if munkiPref("InstallAppleSoftwareUpdates"):
         if warnings in target_warnings and any(
             error.startswith(target_error)
             for target_error in target_errors
@@ -50,7 +59,7 @@ def check_for_errors(report):
 
 
 def check_server_connection():
-    host = munkicommon.pref('SoftwareRepoURL')
+    host = munkiPref('SoftwareRepoURL')
     try:
         urllib.request.urlopen(host, timeout=5).getcode()
     except urllib.error.HTTPError as e:
